@@ -9,8 +9,6 @@ routes = [
 		{ pattern = "*.brocenter.co.uk/*", zone_name = "brocenter.co.uk" },
 		{ pattern = "*.brocenter.uk/*", zone_name = "brocenter.uk" },
 		{ pattern = "*.cengeng.co.uk/*", zone_name = "cengeng.co.uk" },
-		{ pattern = "*.cipllondon.co.uk/*", zone_name = "cipllondon.co.uk" },
-		{ pattern = "*.cipluk.uk/*", zone_name = "cipluk.uk" },
 		{ pattern = "*.dalbankeak.co.uk/*", zone_name = "dalbankeak.co.uk" },
 		{ pattern = "*.gembul.co.uk/*", zone_name = "gembul.co.uk" },
 		{ pattern = "*.gentonk.co.uk/*", zone_name = "gentonk.co.uk" },
@@ -22,9 +20,6 @@ routes = [
 		{ pattern = "*.kuntrink.uk/*", zone_name = "kuntrink.uk" },
 		{ pattern = "*.lemper.co.uk/*", zone_name = "lemper.co.uk" },
 		{ pattern = "*.lemper.org.uk/*", zone_name = "lemper.org.uk" },
-		{ pattern = "*.profitbotfx.co.uk/*", zone_name = "profitbotfx.co.uk" },
-		{ pattern = "*.profitbotfx.uk/*", zone_name = "profitbotfx.uk" },
-		{ pattern = "*.realcipluk.co.uk/*", zone_name = "realcipluk.co.uk" },
 		{ pattern = "*.smilespirit.co.uk/*", zone_name = "smilespirit.co.uk" },
 		{ pattern = "*.kiwil.my.id/*", zone_name = "kiwil.my.id" },
 		{ pattern = "*.cantikul.my.id/*", zone_name = "cantikul.my.id" },
@@ -32,6 +27,7 @@ routes = [
 		{ pattern = "*.shopee-cod.my.id/*", zone_name = "shopee-cod.my.id" }
 
 ]
+
 
 
 
