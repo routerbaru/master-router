@@ -19,8 +19,6 @@ export default {
       "brocenter.co.uk",
       "brocenter.uk",
       "cengeng.co.uk",
-      "cipllondon.co.uk",
-      "cipluk.uk",
       "dalbankeak.co.uk",
       "gembul.co.uk",
       "gentonk.co.uk",
@@ -32,11 +30,12 @@ export default {
       "kuntrink.uk",
       "lemper.co.uk",
       "lemper.org.uk",
-      "profitbotfx.co.uk",
-      "profitbotfx.uk",
-      "realcipluk.co.uk",
       "smilespirit.co.uk",
       "smilespirit.uk",
+      "shopee-cod.my.id,
+      "cenulmania.my.id:,
+      "cantikul.my.id",
+      "kiwil.my.id"
       // 👇 TAMBAHAN: Domain Worker Bawaan
       "router-utama.masbero323.workers.dev"
     ];
