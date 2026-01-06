@@ -32,8 +32,8 @@ export default {
       "lemper.org.uk",
       "smilespirit.co.uk",
       "smilespirit.uk",
-      "shopee-cod.my.id,
-      "cenulmania.my.id:,
+      "shopee-cod.my.id",
+      "cenulmania.my.id",
       "cantikul.my.id",
       "kiwil.my.id"
       // 👇 TAMBAHAN: Domain Worker Bawaan
