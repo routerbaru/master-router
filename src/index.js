@@ -35,7 +35,7 @@ export default {
       "shopee-cod.my.id",
       "cenulmania.my.id",
       "cantikul.my.id",
-      "kiwil.my.id"
+      "kiwil.my.id",
       // 👇 TAMBAHAN: Domain Worker Bawaan
       "router-utama.masbero323.workers.dev"
     ];
