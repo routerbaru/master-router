@@ -1,8 +1,6 @@
 // =========================================================
-// CONFIG: CACHE UNTUK LANDING PAGE (JANGAN DIUBAH)
+// CONFIG: CACHE LP (Hanya untuk User Manusia/Landing Page)
 // =========================================================
-// Cache ini HANYA untuk website LP (Akun A) supaya cepat.
-// TIDAK AKAN berlaku untuk verifikasi Pinterest.
 const LP_CACHE_TTL = 3600; 
 
 export default {
@@ -12,43 +10,46 @@ export default {
     let path = url.pathname; 
 
     // =========================================================
-    // 0. FITUR PINTEREST (REAL-TIME / NO CACHE)
+    // 0. FITUR PINTEREST (NO-CACHE / REAL TIME GENERATOR)
     // =========================================================
-    // Menangkap URL: /pinterest-(KODEAPAPUN).html
-    // Didesain untuk menangani Ratusan request per jam tanpa bentrok.
+    // Menangkap URL apapun yang berawalan /pinterest-
     
-    if (path.match(/\/pinterest-[a-zA-Z0-9]+\.html/)) {
+    if (path.includes("/pinterest-") && path.includes(".html")) {
       
-      // 1. Ekstrak Kode Secara Dinamis
-      // Apapun yang ada di URL, itu yang kita ambil.
-      const filename = path.split('/').pop(); // pinterest-xxxxx.html
-      const verificationCode = filename.replace(/^pinterest-/i, '').replace(/\.html$/i, '');
+      // 1. AMBIL DATA DARI URL APA ADANYA
+      // path: /pinterest-2cb22134ea1fd0750aea6b565a2234bf.html
+      
+      const rawFileName = path.split('/').pop(); // pinterest-xxxx.html
+      // Bersihkan nama file untuk mendapatkan kodenya saja
+      const cleanCode = rawFileName.replace('pinterest-', '').replace('.html', '');
 
-      // 2. Buat HTML Valid Sesuai File Asli
+      // 2. BUAT HTML VALID
       const htmlContent = `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="p:domain_verify" content="${verificationCode}"/>
-    <meta name="pinterest-site-verification" content="${verificationCode}" />
+    
+    <meta name="p:domain_verify" content="${cleanCode}"/>
+    <meta name="pinterest-site-verification" content="${cleanCode}" />
+
     <title>Pinterest Verification</title>
 </head>
 <body>
-    Verification Code: ${verificationCode}
+    <h1>Pinterest Verification</h1>
+    <p>Code: ${cleanCode}</p>
 </body>
 </html>`;
 
-      // 3. RETURN RESPONSE DENGAN MATIKAN CACHE (PENTING!)
-      // Header ini memerintahkan Cloudflare & Browser: "JANGAN SIMPAN DATA INI!"
+      // 3. HEADER PEMBUNUH CACHE (RAHASIANYA DISINI)
+      // 'no-store' = Jangan disimpan di storage manapun
+      // 'max-age=0' = Data ini langsung kadaluarsa detik ini juga
       return new Response(htmlContent, {
         headers: { 
-          'Content-Type': 'text/html; charset=UTF-8', 
-          // 👇 INI KUNCINYA AGAR BISA BANYAK AKUN PER JAM
-          'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0, proxy-revalidate',
+          'Content-Type': 'text/html; charset=UTF-8',
+          'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0', 
           'Pragma': 'no-cache',
-          'Expires': '0',
-          'Surrogate-Control': 'no-store'
+          'Expires': '0'
         },
       });
     }
@@ -57,9 +58,7 @@ export default {
     // =========================================================
 
 
-    // --- LOGIKA ROUTER SUBDOMAIN (AKUN A) ---
-    // Di bawah ini cache tetap jalan (3600 detik) agar LP kamu ngebut.
-    
+    // --- LOGIKA ROUTER BAWAAN (JANGAN DIUBAH) ---
     const CONFIG_URL = "https://raw.githubusercontent.com/masbero323-art/master-router/main/routes.json";
     const DEFAULT_FALLBACK_PROJECT = "books-c6s"; 
 
@@ -143,7 +142,7 @@ export default {
     proxyRequest.headers.set("X-Forwarded-Host", hostname);
     
     try {
-        // Cache LP tetap aktif di sini
+        // Cache LP tetap jalan (agar user experience bagus)
         let response = await fetch(proxyRequest, {
             cf: { cacheTtl: LP_CACHE_TTL, cacheEverything: true }
         });
