@@ -7,23 +7,49 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const hostname = url.hostname; 
-    let path = url.pathname; // Kita butuh ini untuk logika worker
+    let path = url.pathname; 
 
     // =========================================================
-    // 0. FITUR ANTI-MULES: AUTO PINTEREST VERIFICATION
+    // 0. FITUR ANTI-MULES: AUTO PINTEREST VERIFICATION (ULTIMATE)
     // =========================================================
-    // Ini akan menangkap URL seperti: domain.com/pinterest-12345.html
-    // Dan otomatis menjawab: pinterest-12345
-    // Tanpa perlu setting apa-apa lagi selamanya.
+    // Menangkap URL: /pinterest-xxxxx.html
     
     if (path.match(/^\/pinterest-[a-zA-Z0-9]+\.html$/)) {
-      // Ambil kode verifikasi (buang '/' di depan dan '.html' di belakang)
-      const verificationCode = path.slice(1).replace('.html', '');
+      
+      // 1. Ambil Kode Unik dari URL
+      // Dari: /pinterest-2cb22134ea1fd0750aea6b565a2234bf.html
+      // Menjadi: 2cb22134ea1fd0750aea6b565a2234bf
+      const fileName = path.replace('/', ''); 
+      const codeOnly = fileName.replace('pinterest-', '').replace('.html', ''); 
 
-      return new Response(verificationCode, {
+      // 2. BUAT HTML MENIRU FILE ASLI (Berdasarkan file yang kamu upload)
+      // Kita pasang dua jenis Meta Tag sekaligus (Shotgun Strategy) biar pasti kena.
+      const htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <meta name="p:domain_verify" content="${codeOnly}"/>
+    
+    <meta name="pinterest-site-verification" content="${codeOnly}" />
+    
+    <title>Pinterest Verification</title>
+</head>
+<body style="background-color:#f7f5f5; padding: 20px;">
+    <h1>Pinterest Verification</h1>
+    <p>File: ${fileName}</p>
+    <p>Code: ${codeOnly}</p>
+</body>
+</html>`;
+
+      // 3. Kirim sebagai HTML Valid + PAKSA HAPUS CACHE
+      return new Response(htmlContent, {
         headers: { 
-          'content-type': 'text/html',
-          'Access-Control-Allow-Origin': '*' 
+          'Content-Type': 'text/html; charset=UTF-8', 
+          'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+          'Pragma': 'no-cache',
+          'Expires': '0'
         },
       });
     }
@@ -59,48 +85,33 @@ export default {
       "cenulmania.my.id",
       "cantikul.my.id",
       "kiwil.my.id",
-      // 👇 TAMBAHAN: Domain Worker Bawaan
       "router-utama.masbero323.workers.dev"
     ];
 
     // =========================================================
     // 2. LOGIKA DETEKSI "KEY" (NAMA PROJECT)
     // =========================================================
-    let projectKey = ""; // Ini pengganti variabel 'subdomain'
+    let projectKey = ""; 
     let isWorkerDomain = hostname === "router-utama.masbero323.workers.dev";
 
     if (isWorkerDomain) {
-        // --- LOGIKA JALUR DARURAT (WORKERS.DEV) ---
-        // Cara pakai: router-utama.masbero323.workers.dev/dalban/halaman-buku
-        // Kita ambil "dalban" dari path pertama
         const pathSegments = path.split('/').filter(Boolean);
-        
         if (pathSegments.length > 0) {
-            projectKey = pathSegments[0]; // Ambil 'dalban'
-            
-            // PENTING: Hapus 'dalban' dari path agar tidak error di target
-            // Jadi request ke target tetap /halaman-buku, bukan /dalban/halaman-buku
+            projectKey = pathSegments[0]; 
             path = "/" + pathSegments.slice(1).join("/");
         } else {
-            // Jika dibuka tanpa path, pakai default
             projectKey = "default"; 
         }
-
     } else {
-        // --- LOGIKA NORMAL (SUBDOMAIN) ---
-        // Cara pakai: dalban.gembul.co.uk
         const rootDomain = allowedDomains.find(d => hostname.endsWith(d));
         if (!rootDomain) return new Response("Error 403: Invalid Domain Config", { status: 403 });
-        
         projectKey = hostname.replace(`.${rootDomain}`, "");
     }
 
     // =========================================================
-    // 3. SMART ROUTING (JSON + HARDCODED BACKUP)
+    // 3. SMART ROUTING
     // =========================================================
     let targetProject = null;
-    
-    // Cadangan Mati (Isi manual beberapa yang paling penting buat jaga-jaga)
     const HARDCODED_BACKUP = {
        "dalban": "books3-1q5",
        "orbit": "books2-5ju"
@@ -118,7 +129,6 @@ export default {
         mappings = HARDCODED_BACKUP;
     }
 
-    // Gabungkan backup jika fetch gagal total
     if (Object.keys(mappings).length === 0) mappings = HARDCODED_BACKUP;
 
     if (mappings[projectKey]) {
@@ -131,16 +141,13 @@ export default {
     // 4. EKSEKUSI PROXY KE PAGES
     // =========================================================
     const targetHostname = `${targetProject}.pages.dev`;
-    
-    // Buat URL baru dengan Path yang sudah dibersihkan (jika pakai worker)
     const targetUrl = new URL(request.url);
     targetUrl.hostname = targetHostname;
-    targetUrl.pathname = path; // Path yang sudah disesuaikan
+    targetUrl.pathname = path; 
     targetUrl.protocol = "https:";
 
     const proxyRequest = new Request(targetUrl, request);
     
-    // Header Masking
     proxyRequest.headers.set("Host", targetHostname);
     proxyRequest.headers.set("X-Forwarded-Host", hostname);
     
@@ -149,14 +156,11 @@ export default {
             cf: { cacheTtl: CACHE_TTL, cacheEverything: true }
         });
 
-        // Cek jika Pages Tujuan Mati (404 Not Found dari Cloudflare Pages)
         if (response.status === 404 && response.headers.get("x-cf-pages")) {
              return Response.redirect(`https://${hostname}/`, 302);
         }
 
         const newResponse = new Response(response.body, response);
-
-        // Anti-Leak Redirect Adjustment
         const locationHeader = newResponse.headers.get("Location");
         if (locationHeader && locationHeader.includes(".pages.dev")) {
             const fixedLocation = locationHeader.replace(targetHostname, hostname);
