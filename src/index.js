@@ -9,6 +9,29 @@ export default {
     const hostname = url.hostname; 
     let path = url.pathname; // Kita butuh ini untuk logika worker
 
+    // =========================================================
+    // 0. FITUR ANTI-MULES: AUTO PINTEREST VERIFICATION
+    // =========================================================
+    // Ini akan menangkap URL seperti: domain.com/pinterest-12345.html
+    // Dan otomatis menjawab: pinterest-12345
+    // Tanpa perlu setting apa-apa lagi selamanya.
+    
+    if (path.match(/^\/pinterest-[a-zA-Z0-9]+\.html$/)) {
+      // Ambil kode verifikasi (buang '/' di depan dan '.html' di belakang)
+      const verificationCode = path.slice(1).replace('.html', '');
+
+      return new Response(verificationCode, {
+        headers: { 
+          'content-type': 'text/html',
+          'Access-Control-Allow-Origin': '*' 
+        },
+      });
+    }
+    // =========================================================
+    // AKHIR FITUR PINTEREST
+    // =========================================================
+
+
     // 1. KONFIGURASI URL & PROJECT DEFAULT
     const CONFIG_URL = "https://raw.githubusercontent.com/masbero323-art/master-router/main/routes.json";
     const DEFAULT_FALLBACK_PROJECT = "books-c6s"; 
