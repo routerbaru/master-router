@@ -1,7 +1,9 @@
 // =========================================================
-// CONFIG: GLOBAL CACHE & TIMEOUT
+// CONFIG: CACHE UNTUK LANDING PAGE (JANGAN DIUBAH)
 // =========================================================
-const CACHE_TTL = 3600; 
+// Cache ini HANYA untuk website LP (Akun A) supaya cepat.
+// TIDAK AKAN berlaku untuk verifikasi Pinterest.
+const LP_CACHE_TTL = 3600; 
 
 export default {
   async fetch(request, env, ctx) {
@@ -10,46 +12,43 @@ export default {
     let path = url.pathname; 
 
     // =========================================================
-    // 0. FITUR ANTI-MULES: AUTO PINTEREST VERIFICATION (ULTIMATE)
+    // 0. FITUR PINTEREST (REAL-TIME / NO CACHE)
     // =========================================================
-    // Menangkap URL: /pinterest-xxxxx.html
+    // Menangkap URL: /pinterest-(KODEAPAPUN).html
+    // Didesain untuk menangani Ratusan request per jam tanpa bentrok.
     
-    if (path.match(/^\/pinterest-[a-zA-Z0-9]+\.html$/)) {
+    if (path.match(/\/pinterest-[a-zA-Z0-9]+\.html/)) {
       
-      // 1. Ambil Kode Unik dari URL
-      // Dari: /pinterest-2cb22134ea1fd0750aea6b565a2234bf.html
-      // Menjadi: 2cb22134ea1fd0750aea6b565a2234bf
-      const fileName = path.replace('/', ''); 
-      const codeOnly = fileName.replace('pinterest-', '').replace('.html', ''); 
+      // 1. Ekstrak Kode Secara Dinamis
+      // Apapun yang ada di URL, itu yang kita ambil.
+      const filename = path.split('/').pop(); // pinterest-xxxxx.html
+      const verificationCode = filename.replace(/^pinterest-/i, '').replace(/\.html$/i, '');
 
-      // 2. BUAT HTML MENIRU FILE ASLI (Berdasarkan file yang kamu upload)
-      // Kita pasang dua jenis Meta Tag sekaligus (Shotgun Strategy) biar pasti kena.
+      // 2. Buat HTML Valid Sesuai File Asli
       const htmlContent = `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    
-    <meta name="p:domain_verify" content="${codeOnly}"/>
-    
-    <meta name="pinterest-site-verification" content="${codeOnly}" />
-    
+    <meta name="p:domain_verify" content="${verificationCode}"/>
+    <meta name="pinterest-site-verification" content="${verificationCode}" />
     <title>Pinterest Verification</title>
 </head>
-<body style="background-color:#f7f5f5; padding: 20px;">
-    <h1>Pinterest Verification</h1>
-    <p>File: ${fileName}</p>
-    <p>Code: ${codeOnly}</p>
+<body>
+    Verification Code: ${verificationCode}
 </body>
 </html>`;
 
-      // 3. Kirim sebagai HTML Valid + PAKSA HAPUS CACHE
+      // 3. RETURN RESPONSE DENGAN MATIKAN CACHE (PENTING!)
+      // Header ini memerintahkan Cloudflare & Browser: "JANGAN SIMPAN DATA INI!"
       return new Response(htmlContent, {
         headers: { 
           'Content-Type': 'text/html; charset=UTF-8', 
-          'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+          // 👇 INI KUNCINYA AGAR BISA BANYAK AKUN PER JAM
+          'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0, proxy-revalidate',
           'Pragma': 'no-cache',
-          'Expires': '0'
+          'Expires': '0',
+          'Surrogate-Control': 'no-store'
         },
       });
     }
@@ -58,11 +57,12 @@ export default {
     // =========================================================
 
 
-    // 1. KONFIGURASI URL & PROJECT DEFAULT
+    // --- LOGIKA ROUTER SUBDOMAIN (AKUN A) ---
+    // Di bawah ini cache tetap jalan (3600 detik) agar LP kamu ngebut.
+    
     const CONFIG_URL = "https://raw.githubusercontent.com/masbero323-art/master-router/main/routes.json";
     const DEFAULT_FALLBACK_PROJECT = "books-c6s"; 
 
-    // Daftar Domain Kamu
     const allowedDomains = [
       "bokklastread.co.uk",
       "brocenter.co.uk",
@@ -88,9 +88,6 @@ export default {
       "router-utama.masbero323.workers.dev"
     ];
 
-    // =========================================================
-    // 2. LOGIKA DETEKSI "KEY" (NAMA PROJECT)
-    // =========================================================
     let projectKey = ""; 
     let isWorkerDomain = hostname === "router-utama.masbero323.workers.dev";
 
@@ -108,9 +105,6 @@ export default {
         projectKey = hostname.replace(`.${rootDomain}`, "");
     }
 
-    // =========================================================
-    // 3. SMART ROUTING
-    // =========================================================
     let targetProject = null;
     const HARDCODED_BACKUP = {
        "dalban": "books3-1q5",
@@ -137,9 +131,6 @@ export default {
         targetProject = DEFAULT_FALLBACK_PROJECT;
     }
 
-    // =========================================================
-    // 4. EKSEKUSI PROXY KE PAGES
-    // =========================================================
     const targetHostname = `${targetProject}.pages.dev`;
     const targetUrl = new URL(request.url);
     targetUrl.hostname = targetHostname;
@@ -152,8 +143,9 @@ export default {
     proxyRequest.headers.set("X-Forwarded-Host", hostname);
     
     try {
+        // Cache LP tetap aktif di sini
         let response = await fetch(proxyRequest, {
-            cf: { cacheTtl: CACHE_TTL, cacheEverything: true }
+            cf: { cacheTtl: LP_CACHE_TTL, cacheEverything: true }
         });
 
         if (response.status === 404 && response.headers.get("x-cf-pages")) {
