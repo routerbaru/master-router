@@ -106,8 +106,8 @@ export default {
 
     let targetProject = null;
     const HARDCODED_BACKUP = {
-       "dalban": "books3-1q5",
-       "orbit": "books2-5ju"
+       "dalban": "lp-eqk",
+       "orbit": "lp-eqk"
     };
 
     let mappings = {};
