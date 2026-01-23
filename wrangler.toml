@@ -21,12 +21,14 @@ routes = [
 		{ pattern = "*.lemper.co.uk/*", zone_name = "lemper.co.uk" },
 		{ pattern = "*.lemper.org.uk/*", zone_name = "lemper.org.uk" },
 		{ pattern = "*.smilespirit.co.uk/*", zone_name = "smilespirit.co.uk" },
+		{ pattern = "*.smilespirit.uk/*", zone_name = "smilespirit.uk" },
 		{ pattern = "*.kiwil.my.id/*", zone_name = "kiwil.my.id" },
 		{ pattern = "*.cantikul.my.id/*", zone_name = "cantikul.my.id" },
 		{ pattern = "*.cenulmania.my.id/*", zone_name = "cenulmania.my.id" },
 		{ pattern = "*.shopee-cod.my.id/*", zone_name = "shopee-cod.my.id" }
 
 ]
+
 
 
 
