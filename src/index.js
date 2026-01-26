@@ -60,7 +60,7 @@ export default {
 
     // --- LOGIKA ROUTER BAWAAN (JANGAN DIUBAH) ---
     const CONFIG_URL = "https://raw.githubusercontent.com/masbero323-art/master-router/main/routes.json";
-    const DEFAULT_FALLBACK_PROJECT = "books-c6s"; 
+    const DEFAULT_FALLBACK_PROJECT = "lp-eqk"; 
 
     const allowedDomains = [
       "bokklastread.co.uk",
