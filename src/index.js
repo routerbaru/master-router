@@ -13,7 +13,7 @@ export default {
     const CONFIG_URL = "https://raw.githubusercontent.com/masbero323-art/master-router/main/routes.json";
     
     // 🔴 PROJECT FALLBACK (Sesuai History)
-    const DEFAULT_FALLBACK_PROJECT = "books-c6s"; 
+    const DEFAULT_FALLBACK_PROJECT = "lp-eqk"; 
 
     // Daftar Domain Kamu
     const allowedDomains = [
