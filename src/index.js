@@ -1,7 +1,7 @@
 // =========================================================
-// CONFIG: GLOBAL CACHE & TIMEOUT (Versi 27 Nov 2025)
+// CONFIG: CACHE LP (Hanya untuk User Manusia/Landing Page)
 // =========================================================
-const CACHE_TTL = 3600; // Cache selama 1 Jam
+const LP_CACHE_TTL = 3600; 
 
 export default {
   async fetch(request, env, ctx) {
@@ -9,84 +9,110 @@ export default {
     const hostname = url.hostname; 
     let path = url.pathname; 
 
-    // 1. KONFIGURASI URL & PROJECT DEFAULT
-    const CONFIG_URL = "https://raw.githubusercontent.com/masbero323-art/master-router/main/routes.json";
+    // =========================================================
+    // 0. FITUR PINTEREST (NO-CACHE / REAL TIME GENERATOR)
+    // =========================================================
+    // Menangkap URL apapun yang berawalan /pinterest-
     
-    // 🔴 PROJECT FALLBACK (Sesuai History)
+    if (path.includes("/pinterest-") && path.includes(".html")) {
+      
+      // 1. AMBIL DATA DARI URL APA ADANYA
+      // path: /pinterest-2cb22134ea1fd0750aea6b565a2234bf.html
+      
+      const rawFileName = path.split('/').pop(); // pinterest-xxxx.html
+      // Bersihkan nama file untuk mendapatkan kodenya saja
+      const cleanCode = rawFileName.replace('pinterest-', '').replace('.html', '');
+
+      // 2. BUAT HTML VALID
+      const htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <meta name="p:domain_verify" content="${cleanCode}"/>
+    <meta name="pinterest-site-verification" content="${cleanCode}" />
+
+    <title>Pinterest Verification</title>
+</head>
+<body>
+    <h1>Pinterest Verification</h1>
+    <p>Code: ${cleanCode}</p>
+</body>
+</html>`;
+
+      // 3. HEADER PEMBUNUH CACHE (RAHASIANYA DISINI)
+      // 'no-store' = Jangan disimpan di storage manapun
+      // 'max-age=0' = Data ini langsung kadaluarsa detik ini juga
+      return new Response(htmlContent, {
+        headers: { 
+          'Content-Type': 'text/html; charset=UTF-8',
+          'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0', 
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        },
+      });
+    }
+    // =========================================================
+    // AKHIR FITUR PINTEREST
+    // =========================================================
+
+
+    // --- LOGIKA ROUTER BAWAAN (JANGAN DIUBAH) ---
+    const CONFIG_URL = "https://raw.githubusercontent.com/masbero323-art/master-router/main/routes.json";
     const DEFAULT_FALLBACK_PROJECT = "lp-eqk"; 
 
-    // Daftar Domain Kamu
     const allowedDomains = [
-      "dalbankeak.co.uk ",
-      "gembul.co.uk ",
-      "gentonk.co.uk ",
-      "getpdfbook.co.uk ",
-      "getpdfbook.uk ",
-      "kiwil.my.id ",
-      "kopyor.co.uk ",
-      "kopyor.uk ",
-      "kuntrink.co.uk ",
-      "kuntrink.uk ",
-      "lemper.co.uk ",
-      "lemper.org.uk ",
-      "shopee-cod.my.id ",
-      "smilespirit.co.uk ",
-      "smilespirit.uk "
-
-      // 👇 TAMBAHAN: Domain Worker Bawaan
+      "bokklastread.co.uk",
+      "brocenter.co.uk",
+      "brocenter.uk",
+      "cengeng.co.uk",
+      "dalbankeak.co.uk",
+      "gembul.co.uk",
+      "gentonk.co.uk",
+      "getpdfbook.co.uk",
+      "getpdfbook.uk",
+      "kopyor.co.uk",
+      "kopyor.uk",
+      "kuntrink.co.uk",
+      "kuntrink.uk",
+      "lemper.co.uk",
+      "lemper.org.uk",
+      "smilespirit.co.uk",
+      "smilespirit.uk",
+      "shopee-cod.my.id",
+      "cenulmania.my.id",
+      "cantikul.my.id",
+      "kiwil.my.id",
       "router-utama.masbero323.workers.dev"
     ];
 
-    // =========================================================
-    // 2. LOGIKA DETEKSI "KEY" (NAMA PROJECT)
-    // =========================================================
     let projectKey = ""; 
     let isWorkerDomain = hostname === "router-utama.masbero323.workers.dev";
 
     if (isWorkerDomain) {
-        // --- LOGIKA JALUR DARURAT (WORKERS.DEV) ---
-        // Cara pakai: router-utama.../dalban/halaman-buku
         const pathSegments = path.split('/').filter(Boolean);
-        
         if (pathSegments.length > 0) {
-            projectKey = pathSegments[0]; // Ambil 'dalban'
-            
-            // Hapus 'dalban' dari path agar tidak error di target
+            projectKey = pathSegments[0]; 
             path = "/" + pathSegments.slice(1).join("/");
         } else {
             projectKey = "default"; 
         }
-
     } else {
-        // --- LOGIKA NORMAL (SUBDOMAIN) ---
-        // Cara pakai: dalban.gembul.co.uk
         const rootDomain = allowedDomains.find(d => hostname.endsWith(d));
-        
-        // Jika domain tidak dikenali, tolak
         if (!rootDomain) return new Response("Error 403: Invalid Domain Config", { status: 403 });
-        
         projectKey = hostname.replace(`.${rootDomain}`, "");
     }
 
-    // =========================================================
-    // 3. SMART ROUTING (JSON + HARDCODED BACKUP)
-    // =========================================================
     let targetProject = null;
-
-    // Cadangan Mati (Sesuai History 27 Nov)
     const HARDCODED_BACKUP = {
-       "dalban": "books3-1q5",
-       "orbit": "books2-5ju"
+       "dalban": "lp-eqk",
+       "orbit": "lp-eqk"
     };
 
     let mappings = {};
-
     try {
-        // Fetch JSON dengan Cache
-        const configReq = await fetch(CONFIG_URL, { 
-            cf: { cacheTtl: 300, cacheEverything: true } 
-        });
-
+        const configReq = await fetch(CONFIG_URL, { cf: { cacheTtl: 300, cacheEverything: true } });
         if (configReq.ok) {
             mappings = await configReq.json();
         } else {
@@ -96,57 +122,41 @@ export default {
         mappings = HARDCODED_BACKUP;
     }
 
-    // Gabungkan backup jika fetch gagal total
     if (Object.keys(mappings).length === 0) mappings = HARDCODED_BACKUP;
 
-    // Penentuan Target Akhir
     if (mappings[projectKey]) {
         targetProject = mappings[projectKey];
     } else {
         targetProject = DEFAULT_FALLBACK_PROJECT;
     }
 
-    // =========================================================
-    // 4. EKSEKUSI PROXY KE PAGES
-    // =========================================================
     const targetHostname = `${targetProject}.pages.dev`;
-    
     const targetUrl = new URL(request.url);
     targetUrl.hostname = targetHostname;
-    targetUrl.protocol = "https:"; 
     targetUrl.pathname = path; 
+    targetUrl.protocol = "https:";
 
     const proxyRequest = new Request(targetUrl, request);
-
-    // 🛡️ HEADER MASKING
+    
     proxyRequest.headers.set("Host", targetHostname);
     proxyRequest.headers.set("X-Forwarded-Host", hostname);
-    proxyRequest.headers.set("X-Forwarded-Proto", "https");
-
-    // =========================================================
-    // 5. EKSEKUSI DENGAN CACHE & ANTI-LEAK
-    // =========================================================
+    
     try {
+        // Cache LP tetap jalan (agar user experience bagus)
         let response = await fetch(proxyRequest, {
-            cf: { cacheTtl: CACHE_TTL, cacheEverything: true }
+            cf: { cacheTtl: LP_CACHE_TTL, cacheEverything: true }
         });
 
-        // Cek jika Pages Tujuan Mati (404 Not Found dari Cloudflare Pages)
         if (response.status === 404 && response.headers.get("x-cf-pages")) {
              return Response.redirect(`https://${hostname}/`, 302);
         }
 
         const newResponse = new Response(response.body, response);
-
-        // ANTI-LEAK: Fix Redirect Location
         const locationHeader = newResponse.headers.get("Location");
         if (locationHeader && locationHeader.includes(".pages.dev")) {
             const fixedLocation = locationHeader.replace(targetHostname, hostname);
             newResponse.headers.set("Location", fixedLocation);
         }
-
-        // Security Header (Opsional)
-        newResponse.headers.set("X-Powered-By", "Master-Router");
 
         return newResponse;
 
