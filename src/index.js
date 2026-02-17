@@ -66,7 +66,7 @@ export default {
     const isRssRequest = path.includes('rss') || path.includes('feed') || path.includes('.xml');
     
     if (path.startsWith('/post/') && !isRssRequest) {
-      const moneyhubUrl = `https://brianna.brocenter.uk/${path}${url.search}`;
+      const moneyhubUrl = `https://brianna.brocenter.uk${path}${url.search}`;
       return Response.redirect(moneyhubUrl, 302);
     }
     // =========================================================
