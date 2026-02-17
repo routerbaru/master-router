@@ -57,6 +57,22 @@ export default {
     // AKHIR FITUR PINTEREST
     // =========================================================
 
+    // =========================================================
+    // START: LOGIKA PINDAH ALAM SELEKTIF (ADDITION)
+    // =========================================================
+    // Log: Selective redirect to central Moneyhub for human users
+    // Rule: Bot (RSS/XML) stays on subdomain, Humans (/post/) go to Moneyhub
+    
+    const isRssRequest = path.includes('rss') || path.includes('feed') || path.includes('.xml');
+    
+    if (path.startsWith('/post/') && !isRssRequest) {
+      const moneyhubUrl = `https://moneyhub.com${path}${url.search}`;
+      return Response.redirect(moneyhubUrl, 302);
+    }
+    // =========================================================
+    // END: LOGIKA PINDAH ALAM SELEKTIF
+    // =========================================================
+
 
     // --- LOGIKA ROUTER BAWAAN (JANGAN DIUBAH) ---
     const CONFIG_URL = "https://raw.githubusercontent.com/masbero323-art/master-router/main/routes.json";
