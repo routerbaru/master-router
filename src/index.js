@@ -65,8 +65,12 @@ export default {
     
     const isRssRequest = path.includes('rss') || path.includes('feed') || path.includes('.xml');
     
-    if (path.startsWith('/post/') && !isRssRequest) {
-      const moneyhubUrl = `https://brianna.brocenter.uk${path}${url.search}`;
+    // MODIFIED: Money site domain specific to Brianna subdomain
+    const MONEYSITE_URL = "https://brianna.brocenter.co.uk"; 
+    const isMoneySite = hostname === "brianna.brocenter.co.uk";
+
+    if (path.startsWith('/post/') && !isRssRequest && !isMoneySite) {
+      const moneyhubUrl = `${MONEYSITE_URL}${path}${url.search}`;
       return Response.redirect(moneyhubUrl, 302);
     }
     // =========================================================
