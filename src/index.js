@@ -17,31 +17,16 @@ export default {
     }
 
     // 1. LOGIKA PINDAH ALAM SELEKTIF (JANGAN DISENTUH)
-    const isRssRequest = path.includes('rss') || path.includes('feed') || path.includes('.xml');
-    const MONEYSITE_URL = "https://brianna.brocenter.co.uk"; 
-    const isMoneySite = hostname === "brianna.brocenter.co.uk";
+    const isRssRequest = path.includes('rss') || path.includes('feed') || path.includes('.xml');
+    const MONEYSITE_URL = "https://brianna.brocenter.co.uk"; 
+    const isMoneySite = hostname === "brianna.brocenter.co.uk";
 
-    // PERBAIKAN DI SINI:
-    if (path.startsWith('/post/') && !isRssRequest && !isMoneySite) {
-      const targetUrl = `${MONEYSITE_URL}${path}${url.search}`;
-      
-      // Kita kembalikan HTML minimal sebagai "Jembatan"
-      // Ini agar _middleware.js tetap jalan dan menyuntikkan Meta Tag
-      const htmlRedirect = `<!DOCTYPE html>
-      <html>
-        <head>
-          <title>Redirecting...</title>
-          <meta http-equiv="refresh" content="0;url=${targetUrl}">
-        </head>
-        <body>
-          <p>Redirecting to <a href="${targetUrl}">${targetUrl}</a></p>
-        </body>
-      </html>`;
-
-      return new Response(htmlRedirect, { 
-        headers: { 'Content-Type': 'text/html; charset=UTF-8' } 
-      });
-    }
+// --- FIX SAKTI: GANTI BAGIAN INI SAJA ---
+if (path.startsWith('/post/') && !isRssRequest && !isMoneySite) {
+  const targetUrl = `${MONEYSITE_URL}${path}${url.search}`;
+  const htmlRedirect = `<!DOCTYPE html><html><head><title>Redirecting...</title><meta http-equiv="refresh" content="0;url=${targetUrl}"></head><body><p>Redirecting to <a href="${targetUrl}">${targetUrl}</a></p></body></html>`.trim();
+  return new Response(htmlRedirect, { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
+}
 
     // 2. ROUTER ENGINE & MAPPING (FIXED LOGIC)
     const CONFIG_URL = "https://raw.githubusercontent.com/masbero323-art/master-router/main/routes.json";
