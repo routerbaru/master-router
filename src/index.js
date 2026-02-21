@@ -21,8 +21,26 @@ export default {
     const MONEYSITE_URL = "https://brianna.brocenter.co.uk"; 
     const isMoneySite = hostname === "brianna.brocenter.co.uk";
 
+    // PERBAIKAN DI SINI:
     if (path.startsWith('/post/') && !isRssRequest && !isMoneySite) {
-      return Response.redirect(`${MONEYSITE_URL}${path}${url.search}`, 302);
+      const targetUrl = `${MONEYSITE_URL}${path}${url.search}`;
+      
+      // Kita kembalikan HTML minimal sebagai "Jembatan"
+      // Ini agar _middleware.js tetap jalan dan menyuntikkan Meta Tag
+      const htmlRedirect = `<!DOCTYPE html>
+      <html>
+        <head>
+          <title>Redirecting...</title>
+          <meta http-equiv="refresh" content="0;url=${targetUrl}">
+        </head>
+        <body>
+          <p>Redirecting to <a href="${targetUrl}">${targetUrl}</a></p>
+        </body>
+      </html>`;
+
+      return new Response(htmlRedirect, { 
+        headers: { 'Content-Type': 'text/html; charset=UTF-8' } 
+      });
     }
 
     // 2. ROUTER ENGINE & MAPPING (FIXED LOGIC)
