@@ -1,4 +1,4 @@
-// Path: index.js (Master Router - Optimized)
+// Path: index.js (Master Router - Optimized Fixed Version)
 
 const LP_CACHE_TTL = 3600; 
 
@@ -9,21 +9,23 @@ export default {
     let path = url.pathname; 
 
     // ==================================================================
-    // OPTIMASI SAKTI: FILTER BOT & STATIC FILES (UPDATE BARU)
+    // OPTIMASI SAKTI: FILTER BOT & STATIC FILES (FIX TAMPILAN)
     // ==================================================================
     const userAgent = request.headers.get("User-Agent") || "";
     const allowedBots = ["Pinterest", "Spotify", "Amazon", "CastBox", "KKBOX", "PocketCasts", "AppleCoreMedia", "Googlebot"];
     
-    // 1. Filter File Statis: Langsung fetch tanpa lewat logika worker
-    const staticExt = ['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp', 'ico', 'css', 'js', 'txt'];
-    const extension = path.split('.').pop().toLowerCase();
-    if (staticExt.includes(extension)) {
+    // 1. Filter File Statis: Gunakan .includes agar file dengan parameter ?v= tetap lewat
+    const staticExt = ['.jpg', '.jpeg', '.png', '.gif', '.svg', '.webp', '.ico', '.css', '.js', '.txt', '.woff', '.woff2'];
+    const isStaticFile = staticExt.some(ext => path.toLowerCase().includes(ext));
+    
+    if (isStaticFile) {
+        // Jika file statis (CSS/JS/Gambar), langsung ambil tanpa filter bot agar tampilan tidak rusak
         return fetch(request);
     }
 
-    // 2. Filter Bot "Unknown": Jika bukan bot resmi & tidak ada di daftar aman, blokir
+    // 2. Filter Bot "Unknown": Hanya berlaku untuk halaman HTML
     if (!request.cf?.bot && !allowedBots.some(bot => userAgent.includes(bot))) {
-        // Blokir jika User-Agent kosong atau mencurigakan (Unknown)
+        // Blokir jika User-Agent sangat pendek/kosong DAN bukan file statis
         if (userAgent === "" || userAgent.length < 15) {
             return new Response("Access Denied", { status: 403 });
         }
