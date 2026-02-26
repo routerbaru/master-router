@@ -91,4 +91,37 @@ export default {
     }
 
     // 1. LOGIKA PINDAH ALAM SELEKTIF (JANGAN DISENTUH)
-    const MONEYSITE_URL =
+    const MONEYSITE_URL = "https://brianna.brocenter.co.uk"; 
+    const isMoneySite = hostname === "brianna.brocenter.co.uk";
+
+    if (path.startsWith('/post/') && !isRssRequest && !isMoneySite) {
+      const targetUrl = `${MONEYSITE_URL}${path}${url.search}`;
+      const htmlRedirect = `<!DOCTYPE html><html><head><title>Redirecting...</title><meta http-equiv="refresh" content="0;url=${targetUrl}"></head><body><p>Redirecting to <a href="${targetUrl}">${targetUrl}</a></p></body></html>`.trim();
+      return new Response(htmlRedirect, { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
+    }
+
+    // 4. PROXY KE PAGES (HALAMAN HTML)
+    const targetUrl = new URL(request.url);
+    targetUrl.hostname = targetHostname;
+    targetUrl.protocol = "https:";
+
+    const proxyRequest = new Request(targetUrl, request);
+    proxyRequest.headers.set("Host", targetHostname);
+    proxyRequest.headers.set("X-Forwarded-Host", hostname);
+    
+    try {
+        let response = await fetch(proxyRequest, { cf: { cacheTtl: LP_CACHE_TTL, cacheEverything: true } });
+        if (response.status === 404 && response.headers.get("x-cf-pages")) {
+             return Response.redirect(`https://${hostname}/`, 302);
+        }
+        const newResponse = new Response(response.body, response);
+        const locationHeader = newResponse.headers.get("Location");
+        if (locationHeader && locationHeader.includes(".pages.dev")) {
+            newResponse.headers.set("Location", locationHeader.replace(targetHostname, hostname));
+        }
+        return newResponse;
+    } catch (err) {
+        return new Response(`Error: Upstream Timeout`, { status: 502 });
+    }
+  }
+};
