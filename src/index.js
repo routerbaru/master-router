@@ -1,4 +1,4 @@
-// Path: index.js (Master Router - RSS Priority & Static Fix)
+// Path: index.js (Master Router - RSS Link Fix & Bot Filter)
 
 const LP_CACHE_TTL = 3600; 
 
@@ -6,9 +6,9 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const hostname = url.hostname; 
-    let path = url.pathname.toLowerCase(); // Gunakan lowercase agar deteksi path lebih akurat
+    let path = url.pathname.toLowerCase(); 
 
-    // 1. IDENTIFIKASI PROJECT & MAPPING (PINDAH KE ATAS)
+    // 1. IDENTIFIKASI PROJECT & MAPPING
     const CONFIG_URL = "https://raw.githubusercontent.com/masbero323-art/master-router/main/routes.json";
     const DEFAULT_FALLBACK_PROJECT = "lp-7jw"; 
 
@@ -35,21 +35,44 @@ export default {
     const targetHostname = `${targetProject}.pages.dev`;
 
     // ==================================================================
-    // 2. JALUR HIJAU RSS & STATIC (ANTI BLOKIR PINTEREST)
+    // 2. FITUR RSS LINK REWRITER & STATIC BYPASS
     // ==================================================================
     const isRssRequest = path.includes('rss') || path.includes('feed') || path.includes('.xml');
     const staticExt = ['.jpg', '.jpeg', '.png', '.gif', '.svg', '.webp', '.ico', '.css', '.js', '.txt', '.woff', '.woff2'];
     const isStaticFile = staticExt.some(ext => path.includes(ext));
 
-    // FIX SAKTI: Jika request RSS atau File Statis, langsung teruskan ke target tanpa filter bot!
-    if (isRssRequest || isStaticFile) {
-        const bypassUrl = new URL(request.url);
-        bypassUrl.hostname = targetHostname;
-        bypassUrl.protocol = "https:";
-        return fetch(new Request(bypassUrl, request), { cf: { cacheTtl: 86400, cacheEverything: true } });
+    // LOGIKA KHUSUS RSS: Ganti link .pages.dev menjadi Hostname asli
+    if (isRssRequest) {
+        const rssUrl = new URL(request.url);
+        rssUrl.hostname = targetHostname;
+        rssUrl.protocol = "https:";
+        
+        const rssRes = await fetch(new Request(rssUrl, request), { cf: { cacheTtl: 3600, cacheEverything: true } });
+        let xmlText = await rssRes.text();
+        
+        // GANTI SEMUA LINK .pages.dev MENJADI HOSTNAME ASLI AGAR PINTEREST VALID
+        xmlText = xmlText.split(targetHostname).join(hostname);
+        
+        return new Response(xmlText, {
+            headers: { 
+                "Content-Type": "application/xml; charset=utf-8",
+                "Cache-Control": "public, max-age=3600",
+                "Access-Control-Allow-Origin": "*"
+            }
+        });
     }
 
-    // 3. FILTER BOT UNKNOWN (HANYA UNTUK HALAMAN HTML BIASA)
+    // LOGIKA KHUSUS STATIS: Langsung ambil tanpa filter bot
+    if (isStaticFile) {
+        const staticUrl = new URL(request.url);
+        staticUrl.hostname = targetHostname;
+        staticUrl.protocol = "https:";
+        return fetch(new Request(staticUrl, request), { cf: { cacheTtl: 86400, cacheEverything: true } });
+    }
+
+    // ==================================================================
+    // 3. FILTER BOT UNKNOWN (HEMAT KUOTA 100K)
+    // ==================================================================
     const userAgent = request.headers.get("User-Agent") || "";
     const allowedBots = ["Pinterest", "Spotify", "Amazon", "CastBox", "KKBOX", "PocketCasts", "AppleCoreMedia", "Googlebot"];
     
@@ -68,37 +91,4 @@ export default {
     }
 
     // 1. LOGIKA PINDAH ALAM SELEKTIF (JANGAN DISENTUH)
-    const MONEYSITE_URL = "https://brianna.brocenter.co.uk"; 
-    const isMoneySite = hostname === "brianna.brocenter.co.uk";
-
-    if (path.startsWith('/post/') && !isRssRequest && !isMoneySite) {
-      const targetUrl = `${MONEYSITE_URL}${path}${url.search}`;
-      const htmlRedirect = `<!DOCTYPE html><html><head><title>Redirecting...</title><meta http-equiv="refresh" content="0;url=${targetUrl}"></head><body><p>Redirecting to <a href="${targetUrl}">${targetUrl}</a></p></body></html>`.trim();
-      return new Response(htmlRedirect, { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
-    }
-
-    // 4. PROXY KE PAGES (HALAMAN HTML)
-    const targetUrl = new URL(request.url);
-    targetUrl.hostname = targetHostname;
-    targetUrl.protocol = "https:";
-
-    const proxyRequest = new Request(targetUrl, request);
-    proxyRequest.headers.set("Host", targetHostname);
-    proxyRequest.headers.set("X-Forwarded-Host", hostname);
-    
-    try {
-        let response = await fetch(proxyRequest, { cf: { cacheTtl: LP_CACHE_TTL, cacheEverything: true } });
-        if (response.status === 404 && response.headers.get("x-cf-pages")) {
-             return Response.redirect(`https://${hostname}/`, 302);
-        }
-        const newResponse = new Response(response.body, response);
-        const locationHeader = newResponse.headers.get("Location");
-        if (locationHeader && locationHeader.includes(".pages.dev")) {
-            newResponse.headers.set("Location", locationHeader.replace(targetHostname, hostname));
-        }
-        return newResponse;
-    } catch (err) {
-        return new Response(`Error: Upstream Timeout`, { status: 502 });
-    }
-  }
-};
+    const MONEYSITE_URL =
