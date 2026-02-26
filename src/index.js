@@ -1,4 +1,4 @@
-// Path: index.js (Master Router - FINAL ANTI-ERROR)
+// Path: index.js (Master Router - RSS Priority & Static Fix)
 
 const LP_CACHE_TTL = 3600; 
 
@@ -6,9 +6,9 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const hostname = url.hostname; 
-    let path = url.pathname; 
+    let path = url.pathname.toLowerCase(); // Gunakan lowercase agar deteksi path lebih akurat
 
-    // 1. IDENTIFIKASI PROJECT PAGES (PINDAH KE ATAS AGAR STATIS BISA PAKAI)
+    // 1. IDENTIFIKASI PROJECT & MAPPING (PINDAH KE ATAS)
     const CONFIG_URL = "https://raw.githubusercontent.com/masbero323-art/master-router/main/routes.json";
     const DEFAULT_FALLBACK_PROJECT = "lp-7jw"; 
 
@@ -25,7 +25,6 @@ export default {
     const rootDomain = allowedDomains.find(d => hostname.endsWith(d));
     projectKey = rootDomain ? (hostname === rootDomain ? "default" : hostname.replace(`.${rootDomain}`, "")) : "default";
 
-    // AMBIL MAPPING (CACHE 24 JAM)
     let mappings = {};
     try {
         const configReq = await fetch(CONFIG_URL, { cf: { cacheTtl: 86400, cacheEverything: true } });
@@ -36,30 +35,31 @@ export default {
     const targetHostname = `${targetProject}.pages.dev`;
 
     // ==================================================================
-    // 2. FILTER BOT & STATIC FILES (FIXED LOGIC)
+    // 2. JALUR HIJAU RSS & STATIC (ANTI BLOKIR PINTEREST)
     // ==================================================================
+    const isRssRequest = path.includes('rss') || path.includes('feed') || path.includes('.xml');
+    const staticExt = ['.jpg', '.jpeg', '.png', '.gif', '.svg', '.webp', '.ico', '.css', '.js', '.txt', '.woff', '.woff2'];
+    const isStaticFile = staticExt.some(ext => path.includes(ext));
+
+    // FIX SAKTI: Jika request RSS atau File Statis, langsung teruskan ke target tanpa filter bot!
+    if (isRssRequest || isStaticFile) {
+        const bypassUrl = new URL(request.url);
+        bypassUrl.hostname = targetHostname;
+        bypassUrl.protocol = "https:";
+        return fetch(new Request(bypassUrl, request), { cf: { cacheTtl: 86400, cacheEverything: true } });
+    }
+
+    // 3. FILTER BOT UNKNOWN (HANYA UNTUK HALAMAN HTML BIASA)
     const userAgent = request.headers.get("User-Agent") || "";
     const allowedBots = ["Pinterest", "Spotify", "Amazon", "CastBox", "KKBOX", "PocketCasts", "AppleCoreMedia", "Googlebot"];
     
-    const staticExt = ['.jpg', '.jpeg', '.png', '.gif', '.svg', '.webp', '.ico', '.css', '.js', '.txt', '.woff', '.woff2'];
-    const isStaticFile = staticExt.some(ext => path.toLowerCase().includes(ext));
-    
-    // FIX SAKTI: File statis harus diarahkan ke targetHostname, bukan fetch(request) biasa!
-    if (isStaticFile) {
-        const staticUrl = new URL(request.url);
-        staticUrl.hostname = targetHostname;
-        staticUrl.protocol = "https:";
-        return fetch(new Request(staticUrl, request), { cf: { cacheTtl: 86400, cacheEverything: true } });
-    }
-
-    // Filter Bot Unknown (Hanya untuk halaman)
     if (!request.cf?.bot && !allowedBots.some(bot => userAgent.includes(bot))) {
         if (userAgent === "" || userAgent.length < 15) {
             return new Response("Access Denied", { status: 403 });
         }
     }
 
-    // 0. FITUR PINTEREST (JANGAN DISENTUH)
+    // 0. FITUR PINTEREST VERIFIKASI (JANGAN DISENTUH)
     if (path.includes("/pinterest-") && path.includes(".html")) {
       const rawFileName = path.split('/').pop();
       const cleanCode = rawFileName.replace('pinterest-', '').replace('.html', '');
@@ -68,7 +68,6 @@ export default {
     }
 
     // 1. LOGIKA PINDAH ALAM SELEKTIF (JANGAN DISENTUH)
-    const isRssRequest = path.includes('rss') || path.includes('feed') || path.includes('.xml');
     const MONEYSITE_URL = "https://brianna.brocenter.co.uk"; 
     const isMoneySite = hostname === "brianna.brocenter.co.uk";
 
@@ -78,7 +77,7 @@ export default {
       return new Response(htmlRedirect, { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
     }
 
-    // 3. PROXY KE PAGES (UNTUK HALAMAN HTML)
+    // 4. PROXY KE PAGES (HALAMAN HTML)
     const targetUrl = new URL(request.url);
     targetUrl.hostname = targetHostname;
     targetUrl.protocol = "https:";
