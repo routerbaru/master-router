@@ -1,4 +1,4 @@
-// Path: index.js (Master Router)
+// Path: index.js (Master Router - Optimized)
 
 const LP_CACHE_TTL = 3600; 
 
@@ -7,6 +7,28 @@ export default {
     const url = new URL(request.url);
     const hostname = url.hostname; 
     let path = url.pathname; 
+
+    // ==================================================================
+    // OPTIMASI SAKTI: FILTER BOT & STATIC FILES (UPDATE BARU)
+    // ==================================================================
+    const userAgent = request.headers.get("User-Agent") || "";
+    const allowedBots = ["Pinterest", "Spotify", "Amazon", "CastBox", "KKBOX", "PocketCasts", "AppleCoreMedia", "Googlebot"];
+    
+    // 1. Filter File Statis: Langsung fetch tanpa lewat logika worker
+    const staticExt = ['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp', 'ico', 'css', 'js', 'txt'];
+    const extension = path.split('.').pop().toLowerCase();
+    if (staticExt.includes(extension)) {
+        return fetch(request);
+    }
+
+    // 2. Filter Bot "Unknown": Jika bukan bot resmi & tidak ada di daftar aman, blokir
+    if (!request.cf?.bot && !allowedBots.some(bot => userAgent.includes(bot))) {
+        // Blokir jika User-Agent kosong atau mencurigakan (Unknown)
+        if (userAgent === "" || userAgent.length < 15) {
+            return new Response("Access Denied", { status: 403 });
+        }
+    }
+    // ==================================================================
 
     // 0. FITUR PINTEREST (JANGAN DISENTUH)
     if (path.includes("/pinterest-") && path.includes(".html")) {
@@ -17,16 +39,15 @@ export default {
     }
 
     // 1. LOGIKA PINDAH ALAM SELEKTIF (JANGAN DISENTUH)
-    const isRssRequest = path.includes('rss') || path.includes('feed') || path.includes('.xml');
-    const MONEYSITE_URL = "https://brianna.brocenter.co.uk"; 
-    const isMoneySite = hostname === "brianna.brocenter.co.uk";
+    const isRssRequest = path.includes('rss') || path.includes('feed') || path.includes('.xml');
+    const MONEYSITE_URL = "https://brianna.brocenter.co.uk"; 
+    const isMoneySite = hostname === "brianna.brocenter.co.uk";
 
-// --- FIX SAKTI: GANTI BAGIAN INI SAJA ---
-if (path.startsWith('/post/') && !isRssRequest && !isMoneySite) {
-  const targetUrl = `${MONEYSITE_URL}${path}${url.search}`;
-  const htmlRedirect = `<!DOCTYPE html><html><head><title>Redirecting...</title><meta http-equiv="refresh" content="0;url=${targetUrl}"></head><body><p>Redirecting to <a href="${targetUrl}">${targetUrl}</a></p></body></html>`.trim();
-  return new Response(htmlRedirect, { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
-}
+    if (path.startsWith('/post/') && !isRssRequest && !isMoneySite) {
+      const targetUrl = `${MONEYSITE_URL}${path}${url.search}`;
+      const htmlRedirect = `<!DOCTYPE html><html><head><title>Redirecting...</title><meta http-equiv="refresh" content="0;url=${targetUrl}"></head><body><p>Redirecting to <a href="${targetUrl}">${targetUrl}</a></p></body></html>`.trim();
+      return new Response(htmlRedirect, { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
+    }
 
     // 2. ROUTER ENGINE & MAPPING (FIXED LOGIC)
     const CONFIG_URL = "https://raw.githubusercontent.com/masbero323-art/master-router/main/routes.json";
@@ -45,7 +66,6 @@ if (path.startsWith('/post/') && !isRssRequest && !isMoneySite) {
     const rootDomain = allowedDomains.find(d => hostname.endsWith(d));
     
     if (rootDomain) {
-        // Log: Ambil prefix subdomain, kalau root doang jadikan 'default'
         projectKey = hostname === rootDomain ? "default" : hostname.replace(`.${rootDomain}`, "");
     } else {
         projectKey = "default";
@@ -53,11 +73,11 @@ if (path.startsWith('/post/') && !isRssRequest && !isMoneySite) {
 
     let mappings = {};
     try {
-        const configReq = await fetch(CONFIG_URL, { cf: { cacheTtl: 300, cacheEverything: true } });
+        // Optimasi Cache Config agar tidak fetch GitHub terus menerus
+        const configReq = await fetch(CONFIG_URL, { cf: { cacheTtl: 86400, cacheEverything: true } });
         mappings = configReq.ok ? await configReq.json() : {};
     } catch (e) { mappings = {}; }
 
-    // Log: Cari di mapping, kalau nggak ada lari ke lp-7jw
     const targetProject = mappings[projectKey] || DEFAULT_FALLBACK_PROJECT;
     const targetHostname = `${targetProject}.pages.dev`;
     
@@ -67,14 +87,12 @@ if (path.startsWith('/post/') && !isRssRequest && !isMoneySite) {
 
     const proxyRequest = new Request(targetUrl, request);
     
-    // Log: KUNCI FIX NAV-TITLE
     proxyRequest.headers.set("Host", targetHostname);
     proxyRequest.headers.set("X-Forwarded-Host", hostname);
     
     try {
         let response = await fetch(proxyRequest, { cf: { cacheTtl: LP_CACHE_TTL, cacheEverything: true } });
 
-        // Balikin ke Home kalau 404 dari Pages
         if (response.status === 404 && response.headers.get("x-cf-pages")) {
              return Response.redirect(`https://${hostname}/`, 302);
         }
