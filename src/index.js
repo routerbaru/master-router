@@ -1,12 +1,12 @@
-// Path: index.js (Master Router - Fix Redirect & RSS Image Full)
+// Path: index.js (Master Router - Final Stable & Podcast Fixed)
 
 const LP_CACHE_TTL = 3600; 
-const MONEYSITE_URL = "https://brianna.brocenter.co.uk";
 
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const hostname = url.hostname; 
+    // FIX: Tidak menggunakan .toLowerCase() agar case-sensitive tetap aman
     let path = url.pathname; 
 
     // ==================================================================
@@ -15,15 +15,20 @@ export default {
     if (path.includes("/pinterest-") && path.includes(".html")) {
       const rawFileName = path.split('/').pop();
       const cleanCode = rawFileName.replace('pinterest-', '').replace('.html', '');
-      const htmlContent = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8" /><meta name="p:domain_verify" content="${cleanCode}"/><title>Verification</title></head><body>${cleanCode}</body></html>`;
+      const htmlContent = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="p:domain_verify" content="${cleanCode}"/><meta name="pinterest-site-verification" content="${cleanCode}" /><title>Pinterest Verification</title></head><body><h1>Code: ${cleanCode}</h1></body></html>`;
       
       return new Response(htmlContent, {
-        headers: { 'Content-Type': 'text/html; charset=UTF-8', 'Cache-Control': 'no-store' },
+        headers: { 
+          'Content-Type': 'text/html; charset=UTF-8',
+          'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0', 
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        },
       });
     }
 
     // ==================================================================
-    // 2. IDENTIFIKASI PROJECT
+    // 2. IDENTIFIKASI PROJECT (LOGIKA LAMA - AKURAT)
     // ==================================================================
     const CONFIG_URL = "https://raw.githubusercontent.com/masbero323-art/master-router/main/routes.json";
     const DEFAULT_FALLBACK_PROJECT = "lp-7jw"; 
@@ -38,10 +43,11 @@ export default {
     ];
 
     const rootDomain = allowedDomains.find(d => hostname.endsWith(d));
-    if (!rootDomain) return new Response("Error 403", { status: 403 });
+    if (!rootDomain) return new Response("Error 403: Invalid Domain Config", { status: 403 });
 
+    // Menggunakan logika LAMA agar mapping subdomain ke projectPages presisi
     let projectKey = hostname.replace(`.${rootDomain}`, "");
-    if (projectKey === rootDomain || projectKey === "") projectKey = "default"; 
+    if (projectKey === rootDomain) projectKey = "default"; 
 
     let mappings = {};
     try {
@@ -53,52 +59,47 @@ export default {
     const targetHostname = `${targetProject}.pages.dev`;
 
     // ==================================================================
-    // 3. LOGIKA PINDAH ALAM (MONEYSITE REDIRECT)
+    // 3. FITUR RSS & PODCAST LINK REWRITER (FIXED)
     // ==================================================================
+    // Perluasan filter agar mencakup podcast-rss.xml dan variasi lainnya
     const isRssRequest = path.toLowerCase().includes('rss') || 
                          path.toLowerCase().includes('feed') || 
+                         path.toLowerCase().includes('podcast') ||
                          path.endsWith('.xml');
 
-    // Redirect ke moneysite jika bukan halaman root, bukan RSS, dan bukan pinterest file
-    if (!isRssRequest && path !== "/" && !path.includes("pinterest-")) {
-      const targetUrl = `${MONEYSITE_URL}${path}${url.search}`;
-      return new Response(`<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=${targetUrl}"></head></html>`, { 
-        headers: { 'Content-Type': 'text/html; charset=UTF-8' } 
-      });
-    }
-
-    // ==================================================================
-    // 4. FITUR RSS & PODCAST (FIX GAMBAR & LINK BOCOR)
-    // ==================================================================
     if (isRssRequest) {
         const rssUrl = new URL(request.url);
         rssUrl.hostname = targetHostname;
+        rssUrl.protocol = "https:";
         
-        const rssRes = await fetch(new Request(rssUrl, request), { cf: { cacheTtl: 60 } });
+        // Fetch konten XML asli dari Cloudflare Pages
+        const rssRes = await fetch(new Request(rssUrl, request), { 
+            cf: { cacheTtl: 60, cacheEverything: true } 
+        });
+        
         let xmlText = await rssRes.text();
         
-        // Ganti semua link .pages.dev ke domain asli (Pembersihan Bocor)
-        const pagesPattern = new RegExp(`https?://[^"'>]*?${targetProject}\\.pages\\.dev`, 'g');
-        xmlText = xmlText.replace(pagesPattern, `https://${hostname}`);
+        // PEMBERSIHAN LINK: Ganti semua .pages.dev menjadi domain asli
         xmlText = xmlText.split(targetHostname).join(hostname);
-        
-        // FIX GAMBAR PINTEREST: Jika ada URL gambar (.jpg/.png) tapi tidak ada tag <enclosure>
-        // Kita paksa masukkan enclosure agar Pinterest bisa baca gambarnya
-        if (!xmlText.includes("<enclosure")) {
-          xmlText = xmlText.replace(/<item>/g, (match) => {
-            // Mencari URL gambar pertama di dalam konten untuk dijadikan enclosure
-            const imgMatch = xmlText.match(/https?:\/\/[^"'>\s]+\.(?:jpg|jpeg|png|webp|gif)/);
-            const imgUrl = imgMatch ? imgMatch[0] : `https://${hostname}/default-image.jpg`;
-            return `<item>\n<enclosure url="${imgUrl}" length="0" type="image/jpeg" />`;
-          });
-        }
         
         return new Response(xmlText, {
             headers: { 
-                "Content-Type": "application/xml; charset=utf-8",
+                "Content-Type": "application/rss+xml; charset=utf-8",
+                "Cache-Control": "public, max-age=60", 
                 "Access-Control-Allow-Origin": "*"
             }
         });
+    }
+
+    // ==================================================================
+    // 4. LOGIKA PINDAH ALAM (MONEYSITE REDIRECT)
+    // ==================================================================
+    const MONEYSITE_URL = "https://brianna.brocenter.co.uk";
+    // Jika subdomain adalah brianna, lempar ke moneysite kecuali request RSS
+    if (projectKey === "brianna" && !isRssRequest) {
+      const targetUrl = `${MONEYSITE_URL}${path}${url.search}`;
+      const htmlRedirect = `<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=${targetUrl}"></head><body></body></html>`;
+      return new Response(htmlRedirect, { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
     }
 
     // ==================================================================
@@ -106,22 +107,32 @@ export default {
     // ==================================================================
     const finalUrl = new URL(request.url);
     finalUrl.hostname = targetHostname;
+    finalUrl.protocol = "https:";
 
+    const proxyRequest = new Request(finalUrl, request);
+    proxyRequest.headers.set("Host", targetHostname);
+    proxyRequest.headers.set("X-Forwarded-Host", hostname);
+    
     try {
-        let response = await fetch(new Request(finalUrl, request), { 
+        let response = await fetch(proxyRequest, { 
             cf: { cacheTtl: LP_CACHE_TTL, cacheEverything: true } 
         });
         
-        if (response.status === 404) return Response.redirect(`https://${hostname}/`, 302);
+        if (response.status === 404 && response.headers.get("x-cf-pages")) {
+             return Response.redirect(`https://${hostname}/`, 302);
+        }
 
         const newResponse = new Response(response.body, response);
-        const loc = newResponse.headers.get("Location");
-        if (loc && loc.includes(".pages.dev")) {
-            newResponse.headers.set("Location", loc.replace(targetHostname, hostname));
+        
+        // Perbaiki header Location jika terjadi redirect internal
+        const locationHeader = newResponse.headers.get("Location");
+        if (locationHeader && locationHeader.includes(".pages.dev")) {
+            newResponse.headers.set("Location", locationHeader.replace(targetHostname, hostname));
         }
+
         return newResponse;
     } catch (err) {
-        return new Response("Error: Upstream Timeout", { status: 502 });
+        return new Response(`Error: Upstream Timeout`, { status: 502 });
     }
   }
 };
