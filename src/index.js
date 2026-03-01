@@ -6,7 +6,6 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const hostname = url.hostname; 
-    // FIX: Tidak menggunakan .toLowerCase() agar case-sensitive tetap aman
     let path = url.pathname; 
 
     // ==================================================================
@@ -28,7 +27,7 @@ export default {
     }
 
     // ==================================================================
-    // 2. IDENTIFIKASI PROJECT (LOGIKA LAMA - AKURAT)
+    // 2. IDENTIFIKASI PROJECT
     // ==================================================================
     const CONFIG_URL = "https://raw.githubusercontent.com/masbero323-art/master-router/main/routes.json";
     const DEFAULT_FALLBACK_PROJECT = "lp-7jw"; 
@@ -45,7 +44,6 @@ export default {
     const rootDomain = allowedDomains.find(d => hostname.endsWith(d));
     if (!rootDomain) return new Response("Error 403: Invalid Domain Config", { status: 403 });
 
-    // Menggunakan logika LAMA agar mapping subdomain ke projectPages presisi
     let projectKey = hostname.replace(`.${rootDomain}`, "");
     if (projectKey === rootDomain) projectKey = "default"; 
 
@@ -61,7 +59,6 @@ export default {
     // ==================================================================
     // 3. FITUR RSS & PODCAST LINK REWRITER (FIXED)
     // ==================================================================
-    // Perluasan filter agar mencakup podcast-rss.xml dan variasi lainnya
     const isRssRequest = path.toLowerCase().includes('rss') || 
                          path.toLowerCase().includes('feed') || 
                          path.toLowerCase().includes('podcast') ||
@@ -72,14 +69,23 @@ export default {
         rssUrl.hostname = targetHostname;
         rssUrl.protocol = "https:";
         
-        // Fetch konten XML asli dari Cloudflare Pages
-        const rssRes = await fetch(new Request(rssUrl, request), { 
+        // Teruskan header agar Function tahu hostname aslinya
+        const newHeaders = new Headers(request.headers);
+        newHeaders.set("X-Forwarded-Host", hostname);
+
+        const rssRes = await fetch(new Request(rssUrl, { headers: newHeaders }), { 
             cf: { cacheTtl: 60, cacheEverything: true } 
         });
         
         let xmlText = await rssRes.text();
         
-        // PEMBERSIHAN LINK: Ganti semua .pages.dev menjadi domain asli
+        // MODIFIED: Hanya ganti URL (https://...pages.dev) bukan string mentah
+        // Ini mencegah kebocoran email contact@project.pages.dev menjadi salah format
+        const targetFullUrl = `https://${targetHostname}`;
+        const originalFullUrl = `https://${hostname}`;
+        
+        xmlText = xmlText.split(targetFullUrl).join(originalFullUrl);
+        // Secondary clean up untuk link tanpa protocol jika ada
         xmlText = xmlText.split(targetHostname).join(hostname);
         
         return new Response(xmlText, {
@@ -95,7 +101,6 @@ export default {
     // 4. LOGIKA PINDAH ALAM (MONEYSITE REDIRECT)
     // ==================================================================
     const MONEYSITE_URL = "https://brianna.brocenter.co.uk";
-    // Jika subdomain adalah brianna, lempar ke moneysite kecuali request RSS
     if (projectKey === "brianna" && !isRssRequest) {
       const targetUrl = `${MONEYSITE_URL}${path}${url.search}`;
       const htmlRedirect = `<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=${targetUrl}"></head><body></body></html>`;
@@ -124,7 +129,6 @@ export default {
 
         const newResponse = new Response(response.body, response);
         
-        // Perbaiki header Location jika terjadi redirect internal
         const locationHeader = newResponse.headers.get("Location");
         if (locationHeader && locationHeader.includes(".pages.dev")) {
             newResponse.headers.set("Location", locationHeader.replace(targetHostname, hostname));
