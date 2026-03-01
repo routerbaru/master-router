@@ -6,7 +6,6 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const hostname = url.hostname; 
-    // FIX: Tidak menggunakan .toLowerCase() agar case-sensitive tetap aman
     let path = url.pathname; 
 
     // ==================================================================
@@ -45,7 +44,6 @@ export default {
     const rootDomain = allowedDomains.find(d => hostname.endsWith(d));
     if (!rootDomain) return new Response("Error 403: Invalid Domain Config", { status: 403 });
 
-    // Menggunakan logika LAMA agar mapping subdomain ke projectPages presisi
     let projectKey = hostname.replace(`.${rootDomain}`, "");
     if (projectKey === rootDomain) projectKey = "default"; 
 
@@ -59,9 +57,8 @@ export default {
     const targetHostname = `${targetProject}.pages.dev`;
 
     // ==================================================================
-    // 3. FITUR RSS & PODCAST LINK REWRITER (FIXED)
+    // 3. FITUR RSS & PODCAST LINK REWRITER (IMPROVED FOR PINTEREST)
     // ==================================================================
-    // Perluasan filter agar mencakup podcast-rss.xml dan variasi lainnya
     const isRssRequest = path.toLowerCase().includes('rss') || 
                          path.toLowerCase().includes('feed') || 
                          path.toLowerCase().includes('podcast') ||
@@ -72,20 +69,26 @@ export default {
         rssUrl.hostname = targetHostname;
         rssUrl.protocol = "https:";
         
-        // Fetch konten XML asli dari Cloudflare Pages
         const rssRes = await fetch(new Request(rssUrl, request), { 
             cf: { cacheTtl: 60, cacheEverything: true } 
         });
         
         let xmlText = await rssRes.text();
         
-        // PEMBERSIHAN LINK: Ganti semua .pages.dev menjadi domain asli
+        // FIX: Regex Global untuk membersihkan semua variasi link .pages.dev
+        // Ini memastikan tidak ada link bocor meskipun ada skema http/https yang berbeda
+        const pagesPattern = new RegExp(`https?://[^"'>]*?${targetProject}\\.pages\\.dev`, 'g');
+        xmlText = xmlText.replace(pagesPattern, `https://${hostname}`);
+        
+        // Tambahan: Pastikan sitemap atau link relatif tetap mengarah ke domain asli
         xmlText = xmlText.split(targetHostname).join(hostname);
         
         return new Response(xmlText, {
             headers: { 
-                "Content-Type": "application/rss+xml; charset=utf-8",
-                "Cache-Control": "public, max-age=60", 
+                // Pinterest membutuhkan header yang sangat spesifik
+                "Content-Type": "application/xml; charset=utf-8",
+                "X-Content-Type-Options": "nosniff",
+                "Cache-Control": "public, max-age=300", 
                 "Access-Control-Allow-Origin": "*"
             }
         });
@@ -95,7 +98,6 @@ export default {
     // 4. LOGIKA PINDAH ALAM (MONEYSITE REDIRECT)
     // ==================================================================
     const MONEYSITE_URL = "https://brianna.brocenter.co.uk";
-    // Jika subdomain adalah brianna, lempar ke moneysite kecuali request RSS
     if (projectKey === "brianna" && !isRssRequest) {
       const targetUrl = `${MONEYSITE_URL}${path}${url.search}`;
       const htmlRedirect = `<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=${targetUrl}"></head><body></body></html>`;
@@ -124,7 +126,6 @@ export default {
 
         const newResponse = new Response(response.body, response);
         
-        // Perbaiki header Location jika terjadi redirect internal
         const locationHeader = newResponse.headers.get("Location");
         if (locationHeader && locationHeader.includes(".pages.dev")) {
             newResponse.headers.set("Location", locationHeader.replace(targetHostname, hostname));
