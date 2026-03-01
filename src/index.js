@@ -1,16 +1,16 @@
-// Path: index.js (Master Router - Final Stable Version)
+// Path: index.js (Master Router - Final Stable & Podcast Fixed)
 
-const LP_CACHE_TTL = 3600; // Kembali ke 1 jam agar stabil bagi bot
+const LP_CACHE_TTL = 3600; 
 
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const hostname = url.hostname; 
-    // MODIFIED: Path tidak menggunakan .toLowerCase() agar case-sensitive (aman untuk ID Buku)
+    // FIX: Tidak menggunakan .toLowerCase() agar case-sensitive tetap aman
     let path = url.pathname; 
 
     // ==================================================================
-    // 1. FITUR PINTEREST VERIFICATION (NO-CACHE)
+    // 1. FITUR PINTEREST VERIFICATION (REAL TIME)
     // ==================================================================
     if (path.includes("/pinterest-") && path.includes(".html")) {
       const rawFileName = path.split('/').pop();
@@ -42,12 +42,10 @@ export default {
       "cantikul.my.id", "kiwil.my.id"
     ];
 
-    // Cek apakah domain termasuk domain ternak (Landing Page)
     const rootDomain = allowedDomains.find(d => hostname.endsWith(d));
     if (!rootDomain) return new Response("Error 403: Invalid Domain Config", { status: 403 });
 
-    // projectKey menggunakan logika LAMA: Karakter sebelum rootDomain
-    // Jika mengakses kuntrink.co.uk langsung, projectKey akan kosong (string kosong)
+    // Menggunakan logika LAMA agar mapping subdomain ke projectPages presisi
     let projectKey = hostname.replace(`.${rootDomain}`, "");
     if (projectKey === rootDomain) projectKey = "default"; 
 
@@ -61,42 +59,47 @@ export default {
     const targetHostname = `${targetProject}.pages.dev`;
 
     // ==================================================================
-    // 3. LOGIKA PINDAH ALAM (SANGAT KRUSIAL)
+    // 3. FITUR RSS & PODCAST LINK REWRITER (FIXED)
     // ==================================================================
-    const MONEYSITE_URL = "https://brianna.brocenter.co.uk";
-    const isRssRequest = path.toLowerCase().includes('rss') || path.toLowerCase().includes('feed') || path.endsWith('.xml');
-    
-    // brianna.brocenter.co.uk TIDAK ada di routes.json, maka projectKey-nya 
-    // tidak akan ditemukan di mappings, tapi kita butuh trigger spesifik:
-    const isMoneySiteSubdomain = projectKey === "brianna";
+    // Perluasan filter agar mencakup podcast-rss.xml dan variasi lainnya
+    const isRssRequest = path.toLowerCase().includes('rss') || 
+                         path.toLowerCase().includes('feed') || 
+                         path.toLowerCase().includes('podcast') ||
+                         path.endsWith('.xml');
 
-    if (isMoneySiteSubdomain && !isRssRequest) {
-      const targetUrl = `${MONEYSITE_URL}${path}${url.search}`;
-      const htmlRedirect = `<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=${targetUrl}"></head><body></body></html>`;
-      return new Response(htmlRedirect, { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
-    }
-
-    // ==================================================================
-    // 4. RSS LINK REWRITER (UNTUK PINTEREST)
-    // ==================================================================
     if (isRssRequest) {
         const rssUrl = new URL(request.url);
         rssUrl.hostname = targetHostname;
         rssUrl.protocol = "https:";
         
-        const rssRes = await fetch(new Request(rssUrl, request), { cf: { cacheTtl: 60, cacheEverything: true } });
+        // Fetch konten XML asli dari Cloudflare Pages
+        const rssRes = await fetch(new Request(rssUrl, request), { 
+            cf: { cacheTtl: 60, cacheEverything: true } 
+        });
+        
         let xmlText = await rssRes.text();
         
-        // Ganti link internal Pages.dev menjadi Hostname asli
+        // PEMBERSIHAN LINK: Ganti semua .pages.dev menjadi domain asli
         xmlText = xmlText.split(targetHostname).join(hostname);
         
         return new Response(xmlText, {
             headers: { 
                 "Content-Type": "application/rss+xml; charset=utf-8",
-                "Cache-Control": "public, max-age=60", // Short cache for easier testing
+                "Cache-Control": "public, max-age=60", 
                 "Access-Control-Allow-Origin": "*"
             }
         });
+    }
+
+    // ==================================================================
+    // 4. LOGIKA PINDAH ALAM (MONEYSITE REDIRECT)
+    // ==================================================================
+    const MONEYSITE_URL = "https://brianna.brocenter.co.uk";
+    // Jika subdomain adalah brianna, lempar ke moneysite kecuali request RSS
+    if (projectKey === "brianna" && !isRssRequest) {
+      const targetUrl = `${MONEYSITE_URL}${path}${url.search}`;
+      const htmlRedirect = `<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=${targetUrl}"></head><body></body></html>`;
+      return new Response(htmlRedirect, { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
     }
 
     // ==================================================================
@@ -111,16 +114,17 @@ export default {
     proxyRequest.headers.set("X-Forwarded-Host", hostname);
     
     try {
-        let response = await fetch(proxyRequest, { cf: { cacheTtl: LP_CACHE_TTL, cacheEverything: true } });
+        let response = await fetch(proxyRequest, { 
+            cf: { cacheTtl: LP_CACHE_TTL, cacheEverything: true } 
+        });
         
-        // Handle Pages 404
         if (response.status === 404 && response.headers.get("x-cf-pages")) {
              return Response.redirect(`https://${hostname}/`, 302);
         }
 
         const newResponse = new Response(response.body, response);
         
-        // Fix Location Header jika ada redirect dari Pages.dev
+        // Perbaiki header Location jika terjadi redirect internal
         const locationHeader = newResponse.headers.get("Location");
         if (locationHeader && locationHeader.includes(".pages.dev")) {
             newResponse.headers.set("Location", locationHeader.replace(targetHostname, hostname));
