@@ -1,4 +1,4 @@
-// Path: index.js (Master Router - Final Stable & Podcast Fixed)
+// Path: index.js (Master Router - Fixed Email Leak)
 
 const LP_CACHE_TTL = 3600; 
 
@@ -9,7 +9,7 @@ export default {
     let path = url.pathname; 
 
     // ==================================================================
-    // 1. FITUR PINTEREST VERIFICATION (REAL TIME)
+    // 1. FITUR PINTEREST VERIFICATION
     // ==================================================================
     if (path.includes("/pinterest-") && path.includes(".html")) {
       const rawFileName = path.split('/').pop();
@@ -19,9 +19,7 @@ export default {
       return new Response(htmlContent, {
         headers: { 
           'Content-Type': 'text/html; charset=UTF-8',
-          'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0', 
-          'Pragma': 'no-cache',
-          'Expires': '0'
+          'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0'
         },
       });
     }
@@ -57,7 +55,7 @@ export default {
     const targetHostname = `${targetProject}.pages.dev`;
 
     // ==================================================================
-    // 3. FITUR RSS & PODCAST LINK REWRITER (FIXED)
+    // 3. FITUR RSS & PODCAST LINK REWRITER (FIXED LOGIC)
     // ==================================================================
     const isRssRequest = path.toLowerCase().includes('rss') || 
                          path.toLowerCase().includes('feed') || 
@@ -69,7 +67,7 @@ export default {
         rssUrl.hostname = targetHostname;
         rssUrl.protocol = "https:";
         
-        // Teruskan header agar Function tahu hostname aslinya
+        // PENTING: Kirim hostname asli ke Function agar email tidak bocor
         const newHeaders = new Headers(request.headers);
         newHeaders.set("X-Forwarded-Host", hostname);
 
@@ -79,36 +77,23 @@ export default {
         
         let xmlText = await rssRes.text();
         
-        // MODIFIED: Hanya ganti URL (https://...pages.dev) bukan string mentah
-        // Ini mencegah kebocoran email contact@project.pages.dev menjadi salah format
+        // REWRITE: Hanya ganti URL lengkap (https://), bukan string hostname mentah
+        // Ini mencegah "contact@pages.dev" berubah jadi "contact@co.uk"
         const targetFullUrl = `https://${targetHostname}`;
         const originalFullUrl = `https://${hostname}`;
         
         xmlText = xmlText.split(targetFullUrl).join(originalFullUrl);
-        // Secondary clean up untuk link tanpa protocol jika ada
-        xmlText = xmlText.split(targetHostname).join(hostname);
         
         return new Response(xmlText, {
             headers: { 
                 "Content-Type": "application/rss+xml; charset=utf-8",
-                "Cache-Control": "public, max-age=60", 
                 "Access-Control-Allow-Origin": "*"
             }
         });
     }
 
     // ==================================================================
-    // 4. LOGIKA PINDAH ALAM (MONEYSITE REDIRECT)
-    // ==================================================================
-    const MONEYSITE_URL = "https://brianna.brocenter.co.uk";
-    if (projectKey === "brianna" && !isRssRequest) {
-      const targetUrl = `${MONEYSITE_URL}${path}${url.search}`;
-      const htmlRedirect = `<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=${targetUrl}"></head><body></body></html>`;
-      return new Response(htmlRedirect, { headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
-    }
-
-    // ==================================================================
-    // 5. PROXY UTAMA (KE CLOUDFLARE PAGES)
+    // 4. PROXY UTAMA
     // ==================================================================
     const finalUrl = new URL(request.url);
     finalUrl.hostname = targetHostname;
@@ -128,7 +113,6 @@ export default {
         }
 
         const newResponse = new Response(response.body, response);
-        
         const locationHeader = newResponse.headers.get("Location");
         if (locationHeader && locationHeader.includes(".pages.dev")) {
             newResponse.headers.set("Location", locationHeader.replace(targetHostname, hostname));
