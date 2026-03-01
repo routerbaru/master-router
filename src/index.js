@@ -1,6 +1,6 @@
 // Path: index.js (Master Router - RSS Link Fix & WAF Managed)
 
-const LP_CACHE_TTL = 3600; 
+const LP_CACHE_TTL = 10; 
 
 export default {
   async fetch(request, env, ctx) {
@@ -27,7 +27,7 @@ export default {
 
     let mappings = {};
     try {
-        const configReq = await fetch(CONFIG_URL, { cf: { cacheTtl: 86400, cacheEverything: true } });
+        const configReq = await fetch(CONFIG_URL, { cf: { cacheTtl: 10, cacheEverything: true } });
         mappings = configReq.ok ? await configReq.json() : {};
     } catch (e) { mappings = {}; }
 
@@ -47,7 +47,7 @@ export default {
         rssUrl.hostname = targetHostname;
         rssUrl.protocol = "https:";
         
-        const rssRes = await fetch(new Request(rssUrl, request), { cf: { cacheTtl: 3600, cacheEverything: true } });
+        const rssRes = await fetch(new Request(rssUrl, request), { cf: { cacheTtl: 10, cacheEverything: true } });
         let xmlText = await rssRes.text();
         
         // GANTI SEMUA LINK .pages.dev MENJADI HOSTNAME ASLI AGAR PINTEREST VALID
@@ -68,7 +68,7 @@ export default {
         const staticUrl = new URL(request.url);
         staticUrl.hostname = targetHostname;
         staticUrl.protocol = "https:";
-        return fetch(new Request(staticUrl, request), { cf: { cacheTtl: 86400, cacheEverything: true } });
+        return fetch(new Request(staticUrl, request), { cf: { cacheTtl: 10, cacheEverything: true } });
     }
 
     // --- FILTER BOT LAMA DI SINI SUDAH DIHAPUS ---
