@@ -1,4 +1,4 @@
-// Path: index.js (Master Router - MoneySite Redirect for Post Only)
+// Path: index.js (Master Router - Secure Amazon Affiliate Redirect)
 const LP_CACHE_TTL = 3600; 
 
 export default {
@@ -7,9 +7,7 @@ export default {
     const hostname = url.hostname; 
     let path = url.pathname; 
 
-    // ==================================================================
-    // 1. PINTEREST VERIFICATION
-    // ==================================================================
+    // 1. PINTEREST VERIFICATION (Tetap di Subdomain Asli)
     if (path.includes("/pinterest-") && path.includes(".html")) {
       const cleanCode = path.split('/').pop().replace('pinterest-', '').replace('.html', '');
       return new Response(`<!DOCTYPE html><html><head><meta name="p:domain_verify" content="${cleanCode}"/></head><body>${cleanCode}</body></html>`, {
@@ -17,13 +15,10 @@ export default {
       });
     }
 
-    // ==================================================================
     // 2. IDENTIFIKASI PROJECT
-    // ==================================================================
     const CONFIG_URL = "https://raw.githubusercontent.com/masbero323-art/master-router/main/routes.json";
     const allowedDomains = ["co.uk", "uk", "org.uk", "my.id"];
-    const isAllowed = allowedDomains.some(d => hostname.endsWith(d));
-    if (!isAllowed) return new Response("Forbidden", { status: 403 });
+    if (!allowedDomains.some(d => hostname.endsWith(d))) return new Response("Forbidden", { status: 403 });
 
     let projectKey = hostname.split('.')[0]; 
     let mappings = {};
@@ -35,11 +30,8 @@ export default {
     const targetProject = mappings[projectKey] || "lp-7jw";
     const targetHostname = `${targetProject}.pages.dev`;
 
-    // ==================================================================
-    // 3. FITUR RSS & PODCAST LINK REWRITER
-    // ==================================================================
+    // 3. RSS & PODCAST (Tetap di Subdomain Asli - WAJIB UNTUK INDEXING)
     const isRssRequest = path.toLowerCase().includes('rss') || path.includes('.xml');
-    
     if (isRssRequest) {
         const rssUrl = new URL(request.url);
         rssUrl.hostname = targetHostname;
@@ -50,30 +42,23 @@ export default {
         const rssRes = await fetch(new Request(rssUrl, { headers: newHeaders }));
         let xmlText = await rssRes.text();
         
-        const targetFullUrl = `https://${targetHostname}`;
-        const originalFullUrl = `https://${hostname}`;
-        xmlText = xmlText.split(targetFullUrl).join(originalFullUrl);
+        // Rewrite URL agar tetap mengarah ke subdomain asli di dalam RSS
+        xmlText = xmlText.split(`https://${targetHostname}`).join(`https://${hostname}`);
         
         return new Response(xmlText, { headers: { "Content-Type": "application/rss+xml" } });
     }
 
-    // ==================================================================
-    // 4. LOGIKA REDIRECT POST KE MONEYSITE (NEW)
-    // ==================================================================
-    // Hanya mengalihkan jika path diawali dengan /post/
-    // brianna.brocenter.co.uk dikecualikan agar tidak terjadi looping redirect
+    // 4. REDIRECT 302 KE MONEYSITE (KHUSUS HALAMAN POST)
     const MONEYSITE_DOMAIN = "brianna.brocenter.co.uk";
     
     if (path.startsWith("/post/") && hostname !== MONEYSITE_DOMAIN) {
       const targetMoneysiteUrl = `https://${MONEYSITE_DOMAIN}${path}${url.search}`;
       
-      // Menggunakan Redirect 301 (Permanent) atau 302 (Found) sesuai kebutuhan SEO
+      // Menggunakan 302 agar aman untuk Affiliate & SEO
       return Response.redirect(targetMoneysiteUrl, 302);
     }
 
-    // ==================================================================
-    // 5. PROXY UTAMA (ADMIN & HALAMAN LAINNYA)
-    // ==================================================================
+    // 5. PROXY UTAMA (HOME, ADMIN, ASSETS)
     const finalUrl = new URL(request.url);
     finalUrl.hostname = targetHostname;
     
@@ -86,7 +71,6 @@ export default {
             cf: { cacheTtl: LP_CACHE_TTL, cacheEverything: true } 
         });
 
-        // Handle Pages internal redirect (Location header fix)
         const newResponse = new Response(response.body, response);
         const locationHeader = newResponse.headers.get("Location");
         if (locationHeader && locationHeader.includes(".pages.dev")) {
