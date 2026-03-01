@@ -57,7 +57,7 @@ export default {
     const targetHostname = `${targetProject}.pages.dev`;
 
     // ==================================================================
-    // 3. FITUR RSS & PODCAST LINK REWRITER (IMPROVED FOR PINTEREST)
+    // 3. FITUR RSS & PODCAST LINK REWRITER (FIX GAMBAR & LINK)
     // ==================================================================
     const isRssRequest = path.toLowerCase().includes('rss') || 
                          path.toLowerCase().includes('feed') || 
@@ -75,17 +75,16 @@ export default {
         
         let xmlText = await rssRes.text();
         
-        // FIX: Regex Global untuk membersihkan semua variasi link .pages.dev
-        // Ini memastikan tidak ada link bocor meskipun ada skema http/https yang berbeda
+        // FIX: Mengganti semua referensi domain .pages.dev menjadi domain asli
+        // Termasuk link gambar di dalam <enclosure>, <media:content>, atau <img> src
         const pagesPattern = new RegExp(`https?://[^"'>]*?${targetProject}\\.pages\\.dev`, 'g');
         xmlText = xmlText.replace(pagesPattern, `https://${hostname}`);
         
-        // Tambahan: Pastikan sitemap atau link relatif tetap mengarah ke domain asli
+        // Backup replacement untuk string yang tersisa
         xmlText = xmlText.split(targetHostname).join(hostname);
         
         return new Response(xmlText, {
             headers: { 
-                // Pinterest membutuhkan header yang sangat spesifik
                 "Content-Type": "application/xml; charset=utf-8",
                 "X-Content-Type-Options": "nosniff",
                 "Cache-Control": "public, max-age=300", 
