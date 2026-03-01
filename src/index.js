@@ -1,4 +1,4 @@
-// Path: index.js (Master Router - RSS Link Fix & Bot Filter)
+// Path: index.js (Master Router - RSS Link Fix & WAF Managed)
 
 const LP_CACHE_TTL = 3600; 
 
@@ -55,14 +55,15 @@ export default {
         
         return new Response(xmlText, {
             headers: { 
-                "Content-Type": "application/xml; charset=utf-8",
+                // Diubah ke application/rss+xml agar Pinterest lebih mudah mengenali
+                "Content-Type": "application/rss+xml; charset=utf-8",
                 "Cache-Control": "public, max-age=3600",
                 "Access-Control-Allow-Origin": "*"
             }
         });
     }
 
-    // LOGIKA KHUSUS STATIS: Langsung ambil tanpa filter bot
+    // LOGIKA KHUSUS STATIS: Langsung ambil (Filter Bot sudah di WAF)
     if (isStaticFile) {
         const staticUrl = new URL(request.url);
         staticUrl.hostname = targetHostname;
@@ -70,17 +71,7 @@ export default {
         return fetch(new Request(staticUrl, request), { cf: { cacheTtl: 86400, cacheEverything: true } });
     }
 
-    // ==================================================================
-    // 3. FILTER BOT UNKNOWN (HEMAT KUOTA 100K)
-    // ==================================================================
-    const userAgent = request.headers.get("User-Agent") || "";
-    const allowedBots = ["Pinterest", "Spotify", "Amazon", "CastBox", "KKBOX", "PocketCasts", "AppleCoreMedia", "Googlebot"];
-    
-    if (!request.cf?.bot && !allowedBots.some(bot => userAgent.includes(bot))) {
-        if (userAgent === "" || userAgent.length < 15) {
-            return new Response("Access Denied", { status: 403 });
-        }
-    }
+    // --- FILTER BOT LAMA DI SINI SUDAH DIHAPUS ---
 
     // 0. FITUR PINTEREST VERIFIKASI (JANGAN DISENTUH)
     if (path.includes("/pinterest-") && path.includes(".html")) {
