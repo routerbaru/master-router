@@ -59,36 +59,20 @@ export default {
 
 
     // --- LOGIKA ROUTER BAWAAN (JANGAN DIUBAH) ---
-    const CONFIG_URL = "https://raw.githubusercontent.com/masbero323-art/master-router/main/routes.json";
+    const CONFIG_URL = "https://raw.githubusercontent.com/routerbaru/master-router/main/routes.json";
     const DEFAULT_FALLBACK_PROJECT = "lp-eqk"; 
 
     const allowedDomains = [
       "bokklastread.co.uk",
-      "brocenter.co.uk",
-      "brocenter.uk",
       "cengeng.co.uk",
-      "dalbankeak.co.uk",
       "gembul.co.uk",
       "gentonk.co.uk",
-      "getpdfbook.co.uk",
       "getpdfbook.uk",
-      "kopyor.co.uk",
-      "kopyor.uk",
-      "kuntrink.co.uk",
-      "kuntrink.uk",
-      "lemper.co.uk",
-      "lemper.org.uk",
-      "smilespirit.co.uk",
-      "smilespirit.uk",
-      "shopee-cod.my.id",
-      "cenulmania.my.id",
-      "cantikul.my.id",
-      "kiwil.my.id",
-      "router-utama.masbero323.workers.dev"
+      "master-router.router2.workers.dev"
     ];
 
     let projectKey = ""; 
-    let isWorkerDomain = hostname === "router-utama.masbero323.workers.dev";
+    let isWorkerDomain = hostname === "master-router.router2.workers.dev";
 
     if (isWorkerDomain) {
         const pathSegments = path.split('/').filter(Boolean);
