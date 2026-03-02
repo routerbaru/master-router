@@ -1,4 +1,6 @@
-// Path: index.js (Master Router - Secure Amazon Affiliate Redirect)
+// =========================================================
+// CONFIG: CACHE LP (Hanya untuk User Manusia/Landing Page)
+// =========================================================
 const LP_CACHE_TTL = 3600; 
 
 export default {
@@ -7,79 +9,159 @@ export default {
     const hostname = url.hostname; 
     let path = url.pathname; 
 
-    // 1. PINTEREST VERIFICATION (Tetap di Subdomain Asli)
+    // =========================================================
+    // 0. FITUR PINTEREST (NO-CACHE / REAL TIME GENERATOR)
+    // =========================================================
+    // Menangkap URL apapun yang berawalan /pinterest-
+    
     if (path.includes("/pinterest-") && path.includes(".html")) {
-      const cleanCode = path.split('/').pop().replace('pinterest-', '').replace('.html', '');
-      return new Response(`<!DOCTYPE html><html><head><meta name="p:domain_verify" content="${cleanCode}"/></head><body>${cleanCode}</body></html>`, {
-        headers: { 'Content-Type': 'text/html' }
+      
+      // 1. AMBIL DATA DARI URL APA ADANYA
+      // path: /pinterest-2cb22134ea1fd0750aea6b565a2234bf.html
+      
+      const rawFileName = path.split('/').pop(); // pinterest-xxxx.html
+      // Bersihkan nama file untuk mendapatkan kodenya saja
+      const cleanCode = rawFileName.replace('pinterest-', '').replace('.html', '');
+
+      // 2. BUAT HTML VALID
+      const htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <meta name="p:domain_verify" content="${cleanCode}"/>
+    <meta name="pinterest-site-verification" content="${cleanCode}" />
+
+    <title>Pinterest Verification</title>
+</head>
+<body>
+    <h1>Pinterest Verification</h1>
+    <p>Code: ${cleanCode}</p>
+</body>
+</html>`;
+
+      // 3. HEADER PEMBUNUH CACHE (RAHASIANYA DISINI)
+      // 'no-store' = Jangan disimpan di storage manapun
+      // 'max-age=0' = Data ini langsung kadaluarsa detik ini juga
+      return new Response(htmlContent, {
+        headers: { 
+          'Content-Type': 'text/html; charset=UTF-8',
+          'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0', 
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        },
       });
     }
+    // =========================================================
+    // AKHIR FITUR PINTEREST
+    // =========================================================
 
-    // 2. IDENTIFIKASI PROJECT
+
+    // --- LOGIKA ROUTER BAWAAN (JANGAN DIUBAH) ---
     const CONFIG_URL = "https://raw.githubusercontent.com/masbero323-art/master-router/main/routes.json";
-    const allowedDomains = ["co.uk", "uk", "org.uk", "my.id"];
-    if (!allowedDomains.some(d => hostname.endsWith(d))) return new Response("Forbidden", { status: 403 });
+    const DEFAULT_FALLBACK_PROJECT = "lp-eqk"; 
 
-    let projectKey = hostname.split('.')[0]; 
+    const allowedDomains = [
+      "bokklastread.co.uk",
+      "brocenter.co.uk",
+      "brocenter.uk",
+      "cengeng.co.uk",
+      "dalbankeak.co.uk",
+      "gembul.co.uk",
+      "gentonk.co.uk",
+      "getpdfbook.co.uk",
+      "getpdfbook.uk",
+      "kopyor.co.uk",
+      "kopyor.uk",
+      "kuntrink.co.uk",
+      "kuntrink.uk",
+      "lemper.co.uk",
+      "lemper.org.uk",
+      "smilespirit.co.uk",
+      "smilespirit.uk",
+      "shopee-cod.my.id",
+      "cenulmania.my.id",
+      "cantikul.my.id",
+      "kiwil.my.id",
+      "router-utama.masbero323.workers.dev"
+    ];
+
+    let projectKey = ""; 
+    let isWorkerDomain = hostname === "router-utama.masbero323.workers.dev";
+
+    if (isWorkerDomain) {
+        const pathSegments = path.split('/').filter(Boolean);
+        if (pathSegments.length > 0) {
+            projectKey = pathSegments[0]; 
+            path = "/" + pathSegments.slice(1).join("/");
+        } else {
+            projectKey = "default"; 
+        }
+    } else {
+        const rootDomain = allowedDomains.find(d => hostname.endsWith(d));
+        if (!rootDomain) return new Response("Error 403: Invalid Domain Config", { status: 403 });
+        projectKey = hostname.replace(`.${rootDomain}`, "");
+    }
+
+    let targetProject = null;
+    const HARDCODED_BACKUP = {
+       "dalban": "lp-eqk",
+       "orbit": "lp-eqk"
+    };
+
     let mappings = {};
     try {
-        const configReq = await fetch(CONFIG_URL, { cf: { cacheTtl: 600 } });
-        mappings = configReq.ok ? await configReq.json() : {};
-    } catch (e) { mappings = {}; }
+        const configReq = await fetch(CONFIG_URL, { cf: { cacheTtl: 300, cacheEverything: true } });
+        if (configReq.ok) {
+            mappings = await configReq.json();
+        } else {
+            mappings = HARDCODED_BACKUP; 
+        }
+    } catch (e) {
+        mappings = HARDCODED_BACKUP;
+    }
 
-    const targetProject = mappings[projectKey] || "lp-7jw";
+    if (Object.keys(mappings).length === 0) mappings = HARDCODED_BACKUP;
+
+    if (mappings[projectKey]) {
+        targetProject = mappings[projectKey];
+    } else {
+        targetProject = DEFAULT_FALLBACK_PROJECT;
+    }
+
     const targetHostname = `${targetProject}.pages.dev`;
+    const targetUrl = new URL(request.url);
+    targetUrl.hostname = targetHostname;
+    targetUrl.pathname = path; 
+    targetUrl.protocol = "https:";
 
-    // 3. RSS & PODCAST (Tetap di Subdomain Asli - WAJIB UNTUK INDEXING)
-    const isRssRequest = path.toLowerCase().includes('rss') || path.includes('.xml');
-    if (isRssRequest) {
-        const rssUrl = new URL(request.url);
-        rssUrl.hostname = targetHostname;
-        
-        const newHeaders = new Headers(request.headers);
-        newHeaders.set("X-Forwarded-Host", hostname);
-
-        const rssRes = await fetch(new Request(rssUrl, { headers: newHeaders }));
-        let xmlText = await rssRes.text();
-        
-        // Rewrite URL agar tetap mengarah ke subdomain asli di dalam RSS
-        xmlText = xmlText.split(`https://${targetHostname}`).join(`https://${hostname}`);
-        
-        return new Response(xmlText, { headers: { "Content-Type": "application/rss+xml" } });
-    }
-
-    // 4. REDIRECT 302 KE MONEYSITE (KHUSUS HALAMAN POST)
-    const MONEYSITE_DOMAIN = "brianna.brocenter.co.uk";
+    const proxyRequest = new Request(targetUrl, request);
     
-    if (path.startsWith("/post/") && hostname !== MONEYSITE_DOMAIN) {
-      const targetMoneysiteUrl = `https://${MONEYSITE_DOMAIN}${path}${url.search}`;
-      
-      // Menggunakan 302 agar aman untuk Affiliate & SEO
-      return Response.redirect(targetMoneysiteUrl, 302);
-    }
-
-    // 5. PROXY UTAMA (HOME, ADMIN, ASSETS)
-    const finalUrl = new URL(request.url);
-    finalUrl.hostname = targetHostname;
-    
-    const proxyRequest = new Request(finalUrl, request);
     proxyRequest.headers.set("Host", targetHostname);
     proxyRequest.headers.set("X-Forwarded-Host", hostname);
     
     try {
-        let response = await fetch(proxyRequest, { 
-            cf: { cacheTtl: LP_CACHE_TTL, cacheEverything: true } 
+        // Cache LP tetap jalan (agar user experience bagus)
+        let response = await fetch(proxyRequest, {
+            cf: { cacheTtl: LP_CACHE_TTL, cacheEverything: true }
         });
+
+        if (response.status === 404 && response.headers.get("x-cf-pages")) {
+             return Response.redirect(`https://${hostname}/`, 302);
+        }
 
         const newResponse = new Response(response.body, response);
         const locationHeader = newResponse.headers.get("Location");
         if (locationHeader && locationHeader.includes(".pages.dev")) {
-            newResponse.headers.set("Location", locationHeader.replace(targetHostname, hostname));
+            const fixedLocation = locationHeader.replace(targetHostname, hostname);
+            newResponse.headers.set("Location", fixedLocation);
         }
 
         return newResponse;
+
     } catch (err) {
-        return new Response(`Error: Upstream Timeout`, { status: 502 });
+        return new Response(`Error: Upstream Timeout (${err.message})`, { status: 502 });
     }
   }
 };
