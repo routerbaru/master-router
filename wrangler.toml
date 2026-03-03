@@ -6,28 +6,12 @@ compatibility_date = "2024-11-18"
 # Ini menggantikan setting manual di Dashboard Triggers
 routes = [
 		{ pattern = "*.bokklastread.co.uk/*", zone_name = "bokklastread.co.uk" },
-		{ pattern = "*.brocenter.co.uk/*", zone_name = "brocenter.co.uk" },
-		{ pattern = "*.brocenter.uk/*", zone_name = "brocenter.uk" },
 		{ pattern = "*.cengeng.co.uk/*", zone_name = "cengeng.co.uk" },
-		{ pattern = "*.dalbankeak.co.uk/*", zone_name = "dalbankeak.co.uk" },
 		{ pattern = "*.gembul.co.uk/*", zone_name = "gembul.co.uk" },
-		{ pattern = "*.gentonk.co.uk/*", zone_name = "gentonk.co.uk" },
-		{ pattern = "*.getpdfbook.co.uk/*", zone_name = "getpdfbook.co.uk" },
-		{ pattern = "*.getpdfbook.uk/*", zone_name = "getpdfbook.uk" },
-		{ pattern = "*.kopyor.co.uk/*", zone_name = "kopyor.co.uk" },
-		{ pattern = "*.kopyor.uk/*", zone_name = "kopyor.uk" },
-		{ pattern = "*.kuntrink.co.uk/*", zone_name = "kuntrink.co.uk" },
-		{ pattern = "*.kuntrink.uk/*", zone_name = "kuntrink.uk" },
-		{ pattern = "*.lemper.co.uk/*", zone_name = "lemper.co.uk" },
-		{ pattern = "*.lemper.org.uk/*", zone_name = "lemper.org.uk" },
-		{ pattern = "*.smilespirit.co.uk/*", zone_name = "smilespirit.co.uk" },
-		{ pattern = "*.smilespirit.uk/*", zone_name = "smilespirit.uk" },
-		{ pattern = "*.kiwil.my.id/*", zone_name = "kiwil.my.id" },
-		{ pattern = "*.cantikul.my.id/*", zone_name = "cantikul.my.id" },
-		{ pattern = "*.cenulmania.my.id/*", zone_name = "cenulmania.my.id" },
-		{ pattern = "*.shopee-cod.my.id/*", zone_name = "shopee-cod.my.id" }
+		{ pattern = "*.gentonk.co.uk/*", zone_name = "gentonk.co.uk" }
 
 ]
+
 
 
 
