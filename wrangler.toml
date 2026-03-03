@@ -1,4 +1,4 @@
-name = "router-utama"
+name = "master-router"
 main = "src/index.js"
 compatibility_date = "2024-11-18"
 
@@ -8,6 +8,7 @@ routes = [
 		{ pattern = "*.bokklastread.co.uk/*", zone_name = "bokklastread.co.uk" }
 
 ]
+
 
 
 
