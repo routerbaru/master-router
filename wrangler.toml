@@ -5,12 +5,10 @@ compatibility_date = "2024-11-18"
 # Masukkan semua domain kamu di sini (Wildcard)
 # Ini menggantikan setting manual di Dashboard Triggers
 routes = [
-		{ pattern = "*.bokklastread.co.uk/*", zone_name = "bokklastread.co.uk" },
-		{ pattern = "*.cengeng.co.uk/*", zone_name = "cengeng.co.uk" },
-		{ pattern = "*.gembul.co.uk/*", zone_name = "gembul.co.uk" },
-		{ pattern = "*.gentonk.co.uk/*", zone_name = "gentonk.co.uk" }
+		{ pattern = "*.bokklastread.co.uk/*", zone_name = "bokklastread.co.uk" }
 
 ]
+
 
 
 
