@@ -67,6 +67,7 @@ export default {
       "cengeng.co.uk",
       "gembul.co.uk",
       "gentonk.co.uk",
+      "getpdfbook.uk",
       "master-router.router2.workers.dev"
     ];
 
