@@ -60,7 +60,7 @@ export default {
 
     // --- LOGIKA ROUTER BAWAAN (JANGAN DIUBAH) ---
     const CONFIG_URL = "https://raw.githubusercontent.com/routerbaru/master-router/main/routes.json";
-    const DEFAULT_FALLBACK_PROJECT = "lp-eqk"; 
+    const DEFAULT_FALLBACK_PROJECT = "lp-7jw"; 
 
     const allowedDomains = [
       "bokklastread.co.uk",
